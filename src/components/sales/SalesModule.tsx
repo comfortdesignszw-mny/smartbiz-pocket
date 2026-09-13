@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Tag,
   Phone,
+  Package,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { SmartBizState, Product, Sale, SaleItem, PaymentMethod } from '../../types';
@@ -28,6 +29,7 @@ interface SalesModuleProps {
   isQuickAddOpen: boolean;
   onCloseQuickAdd: () => void;
   onOpenQuickAdd: () => void;
+  onOpenAddProduct?: () => void;
 }
 
 export const SalesModule: React.FC<SalesModuleProps> = ({
@@ -37,6 +39,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
   isQuickAddOpen,
   onCloseQuickAdd,
   onOpenQuickAdd,
+  onOpenAddProduct,
 }) => {
   const { products, sales, customers, settings, business } = state;
   const currency = settings.currencySymbol;
@@ -405,8 +408,31 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
             <ShoppingBag className="w-10 h-10 mx-auto text-slate-300 mb-2" />
             <p className="text-sm font-semibold text-slate-700">No sales recorded yet</p>
             <p className="text-xs text-slate-400 mt-0.5">
-              Tap "+ Record Sale" to record multi-item cash, EcoCash, or credit sales in seconds.
+              {searchTerm || selectedPaymentFilter !== 'All'
+                ? 'No sales match your active filters.'
+                : 'Record multi-item cash, EcoCash, or credit sales in seconds.'}
             </p>
+            {searchTerm || selectedPaymentFilter !== 'All' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedPaymentFilter('All');
+                }}
+                className="mt-3 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+              >
+                Clear Filters
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenQuickAdd}
+                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Record First Sale</span>
+              </button>
+            )}
           </div>
         ) : (
           filteredSales.map(sale => {
@@ -716,110 +742,137 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
               )}
 
               {/* ADD PRODUCT TO BASKET SECTION */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                  {cartItems.length === 0 ? 'Select Item or Service' : '+ Add Another Item to Sale'}
-                </span>
-
-                {/* Product Dropdown */}
-                <div>
-                  <select
-                    value={selectedProductId}
-                    onChange={e => {
-                      setSelectedProductId(e.target.value);
-                      setCustomItemPrice('');
-                    }}
-                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-medium"
-                  >
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.itemType === 'service'
-                          ? `⚡ [Service] ${p.name} — ${currency}${p.sellingPrice.toFixed(2)} (${p.servicePeriod || 'service'})`
-                          : `📦 ${p.name} — ${currency}${p.sellingPrice.toFixed(2)} (In stock: ${p.quantity} ${p.unit}s)`}
-                      </option>
-                    ))}
-                  </select>
+              {/* Empty catalog notice or Add Product section */}
+              {products.length === 0 ? (
+                <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-4 text-center space-y-2">
+                  <Package className="w-8 h-8 text-amber-600 mx-auto" />
+                  <p className="text-xs font-bold text-slate-800">Your product catalog is empty</p>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    You need to add products or services to your catalog before you can record sales.
+                  </p>
+                  {onOpenAddProduct && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onCloseQuickAdd();
+                        onOpenAddProduct();
+                      }}
+                      className="mt-1 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add First Product / Service</span>
+                    </button>
+                  )}
                 </div>
+              ) : (
+                /* ADD PRODUCT TO BASKET SECTION */
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    {cartItems.length === 0 ? 'Select Item or Service' : '+ Add Another Item to Sale'}
+                  </span>
 
-                {/* Quantity & Unit Price */}
-                <div className="grid grid-cols-2 gap-2">
+                  {/* Product Dropdown */}
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
-                      {selectedProduct?.itemType === 'service'
-                        ? `Units / ${selectedProduct.servicePeriod || 'Periods'}`
-                        : 'Quantity'}
-                    </label>
-                    <div className="flex items-center border border-slate-200 rounded-lg bg-white">
-                      <button
-                        type="button"
-                        onClick={() => setItemQuantity(prev => Math.max(1, prev - 1))}
-                        className="w-9 h-8 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 rounded-l-lg"
-                      >
-                        -
-                      </button>
+                    <select
+                      value={selectedProductId}
+                      onChange={e => {
+                        setSelectedProductId(e.target.value);
+                        setCustomItemPrice('');
+                      }}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-medium"
+                    >
+                      {products.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.itemType === 'service'
+                            ? `⚡ [Service] ${p.name} — ${currency}${p.sellingPrice.toFixed(2)} (${p.servicePeriod || 'service'})`
+                            : `📦 ${p.name} — ${currency}${p.sellingPrice.toFixed(2)} (In stock: ${p.quantity} ${p.unit}s)`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Quantity & Unit Price */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
+                        {selectedProduct?.itemType === 'service'
+                          ? `Units / ${selectedProduct.servicePeriod || 'Periods'}`
+                          : 'Quantity'}
+                      </label>
+                      <div className="flex items-center border border-slate-200 rounded-lg bg-white">
+                        <button
+                          type="button"
+                          onClick={() => setItemQuantity(prev => Math.max(1, prev - 1))}
+                          className="w-9 h-8 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 rounded-l-lg"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min="1"
+                          value={itemQuantity}
+                          onChange={e => setItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full text-center text-xs font-bold bg-transparent focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setItemQuantity(prev => prev + 1)}
+                          className="w-9 h-8 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 rounded-r-lg"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
+                        Unit Price ({currency})
+                      </label>
                       <input
                         type="number"
-                        min="1"
-                        value={itemQuantity}
-                        onChange={e => setItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full text-center text-xs font-bold bg-transparent focus:outline-none"
+                        step="0.01"
+                        placeholder={`${selectedProduct?.sellingPrice.toFixed(2) || '0.00'}`}
+                        value={customItemPrice}
+                        onChange={e => setCustomItemPrice(e.target.value)}
+                        className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-medium h-8"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setItemQuantity(prev => prev + 1)}
-                        className="w-9 h-8 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 rounded-r-lg"
-                      >
-                        +
-                      </button>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
-                      Unit Price ({currency})
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder={`${selectedProduct?.sellingPrice.toFixed(2) || '0.00'}`}
-                      value={customItemPrice}
-                      onChange={e => setCustomItemPrice(e.target.value)}
-                      className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-medium h-8"
-                    />
-                  </div>
+                  {/* Add to Sale Basket Button */}
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>
+                      Add to Sale Basket ({currency}{pickerItemTotal.toFixed(2)})
+                    </span>
+                  </button>
                 </div>
-
-                {/* Add to Sale Basket Button */}
-                <button
-                  type="button"
-                  onClick={handleAddToCart}
-                  className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>
-                    Add to Sale Basket ({currency}{pickerItemTotal.toFixed(2)})
-                  </span>
-                </button>
-              </div>
+              )}
 
               {/* Action Buttons: Final Complete */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleCompleteSale}
-                  className="w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span>
-                    Complete Sale — {currency}
-                    {(
-                      cartTotalAmount +
-                      (cartItems.length === 0 ? pickerItemTotal : 0)
-                    ).toFixed(2)}{' '}
-                    ({cartItems.length > 0 ? `${cartTotalUnits} items` : `${itemQuantity} item`})
-                  </span>
-                </button>
-              </div>
+              {products.length > 0 && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCompleteSale}
+                    className="w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>
+                      Complete Sale — {currency}
+                      {(
+                        cartTotalAmount +
+                        (cartItems.length === 0 ? pickerItemTotal : 0)
+                      ).toFixed(2)}{' '}
+                      ({cartItems.length > 0 ? `${cartTotalUnits} items` : `${itemQuantity} item`})
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

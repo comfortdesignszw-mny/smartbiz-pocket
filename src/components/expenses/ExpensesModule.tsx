@@ -204,9 +204,32 @@ export const ExpensesModule: React.FC<ExpensesModuleProps> = ({
           <div className="bg-white p-8 rounded-xl border border-slate-200 text-center">
             <Tag className="w-10 h-10 mx-auto text-slate-300 mb-2" />
             <p className="text-sm font-semibold text-slate-700">No expenses recorded yet</p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Record Kombi fares, ZESA tokens, rent or water bills.
+            <p className="text-xs text-slate-400 mt-0.5 max-w-xs mx-auto">
+              {searchTerm || selectedCategoryFilter !== 'All'
+                ? 'No expenses match your active filters.'
+                : 'Track Kombi fares, ZESA tokens, rent, wages, or council bills to calculate true net profit.'}
             </p>
+            {searchTerm || selectedCategoryFilter !== 'All' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedCategoryFilter('All');
+                }}
+                className="mt-3 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+              >
+                Clear Filters
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenQuickAdd}
+                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Record First Expense</span>
+              </button>
+            )}
           </div>
         ) : (
           filteredExpenses.map(exp => (

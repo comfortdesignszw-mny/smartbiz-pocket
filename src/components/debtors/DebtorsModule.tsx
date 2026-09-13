@@ -214,10 +214,35 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
         {filteredDebtors.length === 0 ? (
           <div className="bg-white p-8 rounded-xl border border-slate-200 text-center">
             <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500 mb-2" />
-            <p className="text-sm font-semibold text-slate-700">No debtors in this list</p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              All clear! Tap "+ Add Credit" if you allow someone to take goods on credit.
+            <p className="text-sm font-semibold text-slate-700">
+              {debtors.length === 0 ? 'No credit records yet' : 'No debtors in this list'}
             </p>
+            <p className="text-xs text-slate-400 mt-0.5 max-w-xs mx-auto">
+              {searchTerm || filterStatus !== 'All'
+                ? 'No debtor records match your active filters.'
+                : 'All accounts are clear! Record customers taking goods on credit or "chikwereti" to track balances and WhatsApp payment reminders.'}
+            </p>
+            {searchTerm || filterStatus !== 'All' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilterStatus('All');
+                }}
+                className="mt-3 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+              >
+                Clear Filters
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAddOpen(true)}
+                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Record First Credit / Debtor</span>
+              </button>
+            )}
           </div>
         ) : (
           filteredDebtors.map(debtor => {

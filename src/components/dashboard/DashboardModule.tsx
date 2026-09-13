@@ -81,6 +81,44 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
 
   return (
     <div className="space-y-4 pb-6">
+      {/* First-Time / Empty State Onboarding Card */}
+      {products.length === 0 && sales.length === 0 && (
+        <div className="bg-gradient-to-br from-emerald-900 to-slate-900 text-white p-4 rounded-xl shadow-sm border border-emerald-800/40">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-white">Welcome to SmartBiz Pocket</h3>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                Your store is fresh and ready to trade offline. Begin by adding your stock items or recording your first daily sale or expense.
+              </p>
+              <div className="mt-3 flex items-center flex-wrap gap-2">
+                <button
+                  onClick={onQuickAddProduct}
+                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold rounded-lg shadow-xs transition-colors flex items-center gap-1"
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span>Add First Item</span>
+                </button>
+                <button
+                  onClick={onQuickAddSale}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <span>+ Record Sale</span>
+                </button>
+                <button
+                  onClick={onQuickAddExpense}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <span>+ Record Expense</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Low Stock Urgent Alert Banner */}
       {lowStockProducts.length > 0 && (
         <div
@@ -296,7 +334,27 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
         </div>
 
         {recentActivities.length === 0 ? (
-          <p className="text-xs text-slate-400 py-3 text-center">No transactions recorded yet today.</p>
+          <div className="py-6 px-4 text-center">
+            <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-slate-700">No transactions recorded yet today</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Sales, customer receipts, and daily expenses will appear here automatically.
+            </p>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <button
+                onClick={onQuickAddSale}
+                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                + Record First Sale
+              </button>
+              <button
+                onClick={onQuickAddExpense}
+                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                + Record Expense
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="space-y-2">
             {recentActivities.map((act, i) => (

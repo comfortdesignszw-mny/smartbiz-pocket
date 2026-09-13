@@ -16,11 +16,12 @@ import { SmartBizState } from '../../types';
 
 interface ReportsModuleProps {
   state: SmartBizState;
+  onNavigate?: (tab: any) => void;
 }
 
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
-export const ReportsModule: React.FC<ReportsModuleProps> = ({ state }) => {
+export const ReportsModule: React.FC<ReportsModuleProps> = ({ state, onNavigate }) => {
   const { sales, expenses, products, debtors, settings, business } = state;
   const currency = settings.currencySymbol;
 
@@ -136,6 +137,42 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ state }) => {
           </button>
         </div>
       </div>
+
+      {/* Empty State Callout when no transactions exist */}
+      {sales.length === 0 && expenses.length === 0 && (
+        <div className="bg-white border border-slate-200 p-5 rounded-xl text-center space-y-2 shadow-xs">
+          <BarChart3 className="w-8 h-8 text-emerald-700 mx-auto" />
+          <h3 className="text-xs font-bold text-slate-800">No trading activity recorded yet</h3>
+          <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+            Your real-time net profit margins, top sellers, and financial statements will automatically calculate here once you record sales and expenses.
+          </p>
+          {onNavigate && (
+            <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => onNavigate('sales')}
+                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                + Record First Sale
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('stock')}
+                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                + Add Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('expenses')}
+                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                + Record Expense
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Period Tabs */}
       <div className="bg-slate-100 p-1 rounded-xl flex items-center justify-between gap-1 text-xs">

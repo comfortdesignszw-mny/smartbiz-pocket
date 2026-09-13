@@ -425,6 +425,10 @@ export default function App() {
               isQuickAddOpen={salesQuickOpen}
               onCloseQuickAdd={() => setSalesQuickOpen(false)}
               onOpenQuickAdd={() => setSalesQuickOpen(true)}
+              onOpenAddProduct={() => {
+                setActiveTab('stock');
+                setStockQuickOpen(true);
+              }}
             />
           )}
 
@@ -473,7 +477,9 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'reports' && <ReportsModule state={state} />}
+          {activeTab === 'reports' && (
+            <ReportsModule state={state} onNavigate={setActiveTab} />
+          )}
 
           {activeTab === 'insights' && (
             <InsightsModule state={state} onNavigate={tab => setActiveTab(tab)} />
