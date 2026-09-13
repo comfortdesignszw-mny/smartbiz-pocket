@@ -34,7 +34,6 @@ import { InsightsModule } from './components/insights/InsightsModule';
 import { BackupModule } from './components/backup/BackupModule';
 import { SettingsModule } from './components/settings/SettingsModule';
 import { FlutterHubModule } from './components/flutter/FlutterHubModule';
-import { BatteryMedium, WifiOff, Smartphone } from 'lucide-react';
 
 export default function App() {
   const [state, setState] = useState<SmartBizState>(() => loadSmartBizState());
@@ -379,24 +378,6 @@ export default function App() {
             : 'max-w-5xl my-0 min-h-screen bg-slate-100 shadow-xl'
         }`}
       >
-        {/* Android Status Bar Simulation (Visible in Phone Frame Mode) */}
-        {isPhoneFrame && (
-          <div className="bg-emerald-950 text-emerald-200 px-4 py-1 text-[11px] font-semibold flex items-center justify-between select-none shrink-0">
-            <div className="flex items-center gap-1.5">
-              <span>9:41</span>
-              <span className="text-[10px] text-emerald-400">Harare</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-0.5 text-[10px] text-emerald-300">
-                <WifiOff className="w-3 h-3" />
-                <span>Offline</span>
-              </span>
-              <span className="text-[10px] text-emerald-400">2GB RAM • 60fps</span>
-              <BatteryMedium className="w-3.5 h-3.5 text-emerald-300" />
-            </div>
-          </div>
-        )}
-
         {/* PWA Native Install Prompt Banner */}
         <PWAInstallBanner />
 
