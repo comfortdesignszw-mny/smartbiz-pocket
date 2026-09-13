@@ -1,0 +1,6 @@
+{
+  "name": "SmartBiz Pocket",
+  "description": "Lightweight, ultra-fast, offline-first business management app for informal traders, vendors, and small retail businesses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

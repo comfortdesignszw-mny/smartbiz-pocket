@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bizGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#064e3b" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  
+  <!-- Background with safe zone margin -->
+  <rect width="512" height="512" rx="112" fill="url(#bizGrad)" />
+
+  <!-- Inner Pocket / Bag Container -->
+  <g filter="url(#shadow)">
+    <!-- Main Pocket Body -->
+    <path d="M140 180 C140 168, 150 158, 162 158 L350 158 C362 158, 372 168, 372 180 L360 380 C358 398, 344 412, 326 412 L186 412 C168 412, 154 398, 152 380 Z" fill="#065f46" stroke="#10b981" stroke-width="8" />
+
+    <!-- Bag Handle -->
+    <path d="M206 158 L206 128 C206 100, 228 78, 256 78 C284 78, 306 100, 306 128 L306 158" fill="none" stroke="#34d399" stroke-width="12" stroke-linecap="round" />
+
+    <!-- Pocket Seam Line -->
+    <path d="M150 250 Q256 290 362 250" fill="none" stroke="#047857" stroke-width="6" stroke-dasharray="10 6" />
+
+    <!-- Gold Growth / Coin Medallion -->
+    <circle cx="256" cy="310" r="54" fill="url(#goldGrad)" stroke="#fef3c7" stroke-width="4" />
+    
+    <!-- Dollar / Growth symbol -->
+    <path d="M256 278 L256 342 M242 290 C242 284, 248 280, 256 280 C264 280, 270 285, 270 292 C270 300, 264 304, 256 306 C248 308, 242 312, 242 320 C242 328, 248 332, 256 332 C264 332, 270 328, 270 322" fill="none" stroke="#78350f" stroke-width="6" stroke-linecap="round" />
+
+    <!-- Speed / Lightning Bolt on corner -->
+    <path d="M350 170 L330 206 L346 206 L332 236 L366 194 L350 194 Z" fill="#fbbf24" stroke="#d97706" stroke-width="2" />
+  </g>
+</svg>
