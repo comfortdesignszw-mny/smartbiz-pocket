@@ -13,9 +13,13 @@ import {
   Cpu,
   Code2,
   Download,
+  FileText,
+  ShieldCheck,
+  Scale,
 } from 'lucide-react';
 import { SmartBizState, Business, AppSettings, CurrencyCode } from '../../types';
 import { usePWAInstall } from '../common/usePWAInstall';
+import { LegalDocType } from '../legal/LegalModal';
 
 interface SettingsModuleProps {
   state: SmartBizState;
@@ -23,6 +27,7 @@ interface SettingsModuleProps {
   onUpdateSettings: (settings: AppSettings) => void;
   onTogglePremium: () => void;
   onOpenFlutterHub?: () => void;
+  onOpenLegal?: (doc: LegalDocType) => void;
 }
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({
@@ -31,6 +36,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   onUpdateSettings,
   onTogglePremium,
   onOpenFlutterHub,
+  onOpenLegal,
 }) => {
   const { business, settings } = state;
   const { isInstalled, isInstallable, isIOS, install } = usePWAInstall();
@@ -259,12 +265,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           </span>
         </div>
 
-        <div className="text-xs space-y-1 text-slate-600">
+        <div className="text-xs space-y-1.5 text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200/80">
           <p>
-            • <strong>Free Tier:</strong> Up to 100 sales/month, 50 stock items, basic reports.
+            • <strong>Free Tier:</strong> Basic offline sales, stock inventory, and debtor tracking.
           </p>
           <p>
-            • <strong>Pro Tier:</strong> Unlimited sales, unlimited inventory, cloud backup readiness, custom branding.
+            • <strong>Pro Tier ($2.00 Monthly):</strong> Powered by <strong>RevenueCat Paywall</strong>. Charges <strong>$2 monthly</strong> for unlimited sales, unlimited catalog, automatic backup alerts, custom branded receipts, and the Flutter native offline blueprint.
           </p>
         </div>
 
@@ -276,8 +282,47 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               : 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/20'
           }`}
         >
-          {settings.isPremium ? 'Downgrade to Free Tier (Test)' : '⚡ Simulate Upgrade to Pro (RevenueCat)'}
+          {settings.isPremium ? 'Downgrade to Free Tier (Test)' : '⚡ Simulate Pro Plan ($2/mo via RevenueCat)'}
         </button>
+      </div>
+
+      {/* Legal & Regulatory Policies */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2.5">
+        <div className="flex items-center gap-1.5">
+          <Scale className="w-4 h-4 text-slate-700" />
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Legal & Compliance Documents
+          </h3>
+        </div>
+        <p className="text-xs text-slate-500">
+          Review our Terms of Use and Privacy Policy regarding local offline data custody, RevenueCat paywall integration, and Pro Plan subscription terms ($2/mo).
+        </p>
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => onOpenLegal && onOpenLegal('terms')}
+            className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition-colors flex items-center gap-2"
+          >
+            <FileText className="w-4 h-4 text-emerald-700 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-slate-800">Terms of Use</p>
+              <p className="text-[10px] text-slate-500">Service & $2/mo Plan</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenLegal && onOpenLegal('privacy')}
+            className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition-colors flex items-center gap-2"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-slate-800">Privacy Policy</p>
+              <p className="text-[10px] text-slate-500">Local Data Security</p>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Flutter and Drift Architecture Hub - EXCLUSIVELY FOR PREMIUM USERS */}

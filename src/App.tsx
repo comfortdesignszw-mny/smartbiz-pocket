@@ -34,12 +34,15 @@ import { InsightsModule } from './components/insights/InsightsModule';
 import { BackupModule } from './components/backup/BackupModule';
 import { SettingsModule } from './components/settings/SettingsModule';
 import { FlutterHubModule } from './components/flutter/FlutterHubModule';
+import { Footer } from './components/common/Footer';
+import { LegalModal, LegalDocType } from './components/legal/LegalModal';
 
 export default function App() {
   const [state, setState] = useState<SmartBizState>(() => loadSmartBizState());
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isPhoneFrame, setIsPhoneFrame] = useState(true);
+  const [legalDocModal, setLegalDocModal] = useState<LegalDocType | null>(null);
 
   // Quick action modal open states for fast 1-tap from dashboard
   const [salesQuickOpen, setSalesQuickOpen] = useState(false);
@@ -500,10 +503,14 @@ export default function App() {
               onUpdateSettings={handleUpdateSettings}
               onTogglePremium={handleTogglePremium}
               onOpenFlutterHub={() => setActiveTab('flutter')}
+              onOpenLegal={doc => setLegalDocModal(doc)}
             />
           )}
 
           {activeTab === 'flutter' && <FlutterHubModule />}
+
+          {/* Persistent Application Footer */}
+          <Footer onOpenLegal={doc => setLegalDocModal(doc)} />
         </main>
 
         {/* Global Bottom Navigation */}
@@ -515,6 +522,14 @@ export default function App() {
           isMoreOpen={isMoreOpen}
           onToggleMore={setIsMoreOpen}
           isPremium={state.settings.isPremium}
+          onOpenLegal={doc => setLegalDocModal(doc)}
+        />
+
+        {/* Terms of Use & Privacy Policy Modal */}
+        <LegalModal
+          isOpen={legalDocModal !== null}
+          initialDoc={legalDocModal || 'terms'}
+          onClose={() => setLegalDocModal(null)}
         />
       </div>
     </div>

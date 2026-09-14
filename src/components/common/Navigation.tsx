@@ -14,6 +14,7 @@ import {
   X,
   UserCheck,
 } from 'lucide-react';
+import { LegalDocType } from '../legal/LegalModal';
 
 export type TabType =
   | 'dashboard'
@@ -36,6 +37,7 @@ interface NavigationProps {
   isMoreOpen: boolean;
   onToggleMore: (open: boolean) => void;
   isPremium?: boolean;
+  onOpenLegal?: (doc: LegalDocType) => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -46,6 +48,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   isMoreOpen,
   onToggleMore,
   isPremium = false,
+  onOpenLegal,
 }) => {
   const isMoreActive = ['customers', 'reports', 'insights', 'backup', 'settings', 'flutter'].includes(activeTab);
 
@@ -172,6 +175,39 @@ export const Navigation: React.FC<NavigationProps> = ({
                   <span className="text-[10px] text-teal-600 font-bold">PRO Architecture</span>
                 </button>
               )}
+            </div>
+
+            {/* Legal & Attribution in More Drawer */}
+            <div className="pt-3 mt-1 border-t border-slate-200/80 text-center space-y-1">
+              <p className="text-[11px] font-semibold text-slate-700">
+                @2026 SmartBiz Pocket. All Rights Reserved.
+              </p>
+              <p className="text-[10px] text-slate-500 font-medium">
+                Designed by Comfort Designs-+263772824132
+              </p>
+              <div className="flex items-center justify-center gap-2 pt-0.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleMore(false);
+                    onOpenLegal?.('terms');
+                  }}
+                  className="text-emerald-700 hover:underline font-medium"
+                >
+                  Terms of Service
+                </button>
+                <span className="text-slate-300">•</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleMore(false);
+                    onOpenLegal?.('privacy');
+                  }}
+                  className="text-emerald-700 hover:underline font-medium"
+                >
+                  Privacy Policy
+                </button>
+              </div>
             </div>
           </div>
         </div>
