@@ -158,6 +158,29 @@ export interface BusinessHealthInsight {
   actionTab?: string;
 }
 
+export const FREE_PLAN_SALES_LIMIT = 50;
+export const FREE_PLAN_INVENTORY_LIMIT = 25;
+
+export type AppNotificationType =
+  | 'end_of_day_sales'
+  | 'monthly_reports'
+  | 'subscription_countdown'
+  | 'subscription_renewed'
+  | 'end_of_month_backup';
+
+export interface AppNotification {
+  id: string;
+  type: AppNotificationType;
+  title: string;
+  message: string;
+  createdAt: string;
+  isRead?: boolean;
+  priority: 'low' | 'normal' | 'high' | 'critical';
+  actionLabel?: string;
+  actionTab?: string;
+  actionPayload?: string;
+}
+
 export interface AppSettings {
   pinLockEnabled: boolean;
   pinCode: string;
@@ -170,6 +193,7 @@ export interface AppSettings {
   subscriptionKey?: string;
   subscriptionExpiryDate?: string; // ISO timestamp when Pro expires (30 days from activation)
   subscriptionActivatedAt?: string;
+  freeTrialExpiryDate?: string; // Free plan / trial countdown expiry timestamp
   subscriptionPaymentMethod?: 'ecocash_ussd' | 'revenuecat' | 'admin_key';
   adminPin?: string; // Secret PIN for Comfort Designs Key Generator (changeable anytime)
   language: 'en' | 'sn' | 'nd'; // English, Shona, Ndebele
