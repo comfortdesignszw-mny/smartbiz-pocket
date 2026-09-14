@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -19,6 +19,7 @@ import {
   Copy,
   Check,
   PhoneCall,
+  X,
 } from 'lucide-react';
 import { SmartBizState } from '../../types';
 import { TabType } from '../common/Navigation';
@@ -51,6 +52,9 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
   const { products, sales, expenses, debtors, settings } = state;
   const currency = settings.currencySymbol;
   const [copiedUssd, setCopiedUssd] = useState(false);
+  const [welcomeDismissed, setWelcomeDismissed] = useState(() => {
+    return sessionStorage.getItem('smartbiz_welcome_dismissed') === 'true';
+  });
 
   // Pro Subscription Expiry calculation with 5-Day and 2-Day Alerts
   const subStatus = getSubscriptionStatus(settings);
@@ -290,9 +294,20 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
       )}
 
       {/* First-Time / Empty State Onboarding Card */}
-      {products.length === 0 && sales.length === 0 && (
-        <div className="bg-gradient-to-br from-emerald-900 to-slate-900 text-white p-4 rounded-xl shadow-sm border border-emerald-800/40">
-          <div className="flex items-start gap-3">
+      {!welcomeDismissed && products.length === 0 && sales.length === 0 && (
+        <div className="bg-gradient-to-br from-emerald-900 to-slate-900 text-white p-4 rounded-xl shadow-sm border border-emerald-800/40 relative">
+          <button
+            type="button"
+            onClick={() => {
+              setWelcomeDismissed(true);
+              sessionStorage.setItem('smartbiz_welcome_dismissed', 'true');
+            }}
+            className="absolute top-3 right-3 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            title="Dismiss welcome message"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="flex items-start gap-3 pr-6">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
               <Sparkles className="w-5 h-5 text-emerald-400" />
             </div>

@@ -26,6 +26,7 @@ export interface Product {
   supplier: string;
   minStock: number;
   unit: string;
+  imageUrl?: string; // Compressed offline base64 image preview
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +55,7 @@ export interface SaleItem {
   unitSellingPrice: number;
   totalSale: number;
   profit: number;
+  imageUrl?: string;
 }
 
 export interface Sale {

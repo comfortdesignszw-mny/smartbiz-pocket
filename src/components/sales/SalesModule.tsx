@@ -18,6 +18,7 @@ import {
   Tag,
   Phone,
   Package,
+  Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { SmartBizState, Product, Sale, SaleItem, PaymentMethod } from '../../types';
@@ -186,6 +187,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
         unitSellingPrice: effectivePickerPrice,
         totalSale: pickerItemTotal,
         profit: pickerItemProfit,
+        imageUrl: selectedProduct.imageUrl,
       };
       setCartItems(prev => [...prev, newItem]);
     }
@@ -240,6 +242,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
         unitSellingPrice: effectivePickerPrice,
         totalSale: pickerItemTotal,
         profit: pickerItemProfit,
+        imageUrl: selectedProduct.imageUrl,
       });
     }
 
@@ -673,7 +676,29 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
 
                   <div className="divide-y divide-emerald-100 bg-white rounded-lg border border-emerald-200/60 overflow-hidden">
                     {cartItems.map((item, idx) => (
-                      <div key={item.id || idx} className="p-2.5 flex items-center justify-between gap-2 text-xs">
+                      <div key={item.id || idx} className="p-2.5 flex items-center justify-between gap-2.5 text-xs">
+                        {/* Item Photo Thumbnail or Fallback Icon */}
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.productName}
+                            className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${
+                            item.itemType === 'service'
+                              ? 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          }`}>
+                            {item.itemType === 'service' ? (
+                              <Zap className="w-4 h-4" />
+                            ) : (
+                              <Package className="w-4 h-4" />
+                            )}
+                          </div>
+                        )}
+
                         <div className="min-w-0 flex-1">
                           <div className="font-bold text-slate-900 truncate">
                             {item.productName}{' '}
@@ -693,7 +718,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                           <button
                             type="button"
                             onClick={() => handleUpdateCartItemQty(idx, -1)}
-                            className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs"
+                            className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs cursor-pointer"
                           >
                             -
                           </button>
@@ -703,7 +728,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                           <button
                             type="button"
                             onClick={() => handleUpdateCartItemQty(idx, 1)}
-                            className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs"
+                            className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs cursor-pointer"
                           >
                             +
                           </button>
@@ -717,7 +742,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemoveCartItem(idx)}
-                            className="text-[10px] text-rose-600 hover:underline"
+                            className="text-[10px] text-rose-600 hover:underline cursor-pointer"
                           >
                             Remove
                           </button>
@@ -772,7 +797,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                   </span>
 
                   {/* Product Dropdown */}
-                  <div>
+                  <div className="space-y-2">
                     <select
                       value={selectedProductId}
                       onChange={e => {
@@ -789,6 +814,50 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                         </option>
                       ))}
                     </select>
+
+                    {/* Selected Product Visual Preview Card */}
+                    {selectedProduct && (
+                      <div className="flex items-center gap-2.5 p-2 bg-white rounded-lg border border-slate-200/80 shadow-2xs">
+                        {selectedProduct.imageUrl ? (
+                          <img
+                            src={selectedProduct.imageUrl}
+                            alt={selectedProduct.name}
+                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
+                              selectedProduct.itemType === 'service'
+                                ? 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            }`}
+                          >
+                            {selectedProduct.itemType === 'service' ? (
+                              <Zap className="w-5 h-5" />
+                            ) : (
+                              <Package className="w-5 h-5" />
+                            )}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold text-slate-900 truncate">
+                            {selectedProduct.name}
+                          </div>
+                          <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                            <span className="font-semibold text-emerald-700">
+                              {currency}{selectedProduct.sellingPrice.toFixed(2)}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              {selectedProduct.itemType === 'service'
+                                ? selectedProduct.servicePeriod || 'per session'
+                                : `${selectedProduct.quantity} ${selectedProduct.unit}s in stock`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Quantity & Unit Price */}
