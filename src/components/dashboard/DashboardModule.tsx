@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -55,6 +55,54 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
   const [welcomeDismissed, setWelcomeDismissed] = useState(() => {
     return sessionStorage.getItem('smartbiz_welcome_dismissed') === 'true';
   });
+  const [welcomeSecondsRemaining, setWelcomeSecondsRemaining] = useState(60);
+  const welcomeCardRef = useRef<HTMLDivElement>(null);
+
+  const handleDismissWelcome = () => {
+    setWelcomeDismissed(true);
+    sessionStorage.setItem('smartbiz_welcome_dismissed', 'true');
+  };
+
+  // 60-second countdown timer for auto-disappearance
+  useEffect(() => {
+    if (welcomeDismissed || products.length > 0 || sales.length > 0) return;
+
+    const timer = setInterval(() => {
+      setWelcomeSecondsRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleDismissWelcome();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [welcomeDismissed, products.length, sales.length]);
+
+  // Touch or click outside listener to trigger instant disappearance
+  useEffect(() => {
+    if (welcomeDismissed || products.length > 0 || sales.length > 0) return;
+
+    const handleOutsideInteraction = (e: MouseEvent | TouchEvent) => {
+      if (welcomeCardRef.current && !welcomeCardRef.current.contains(e.target as Node)) {
+        handleDismissWelcome();
+      }
+    };
+
+    // Small delay before binding so initial tap doesn't immediately dismiss
+    const delayTimer = setTimeout(() => {
+      document.addEventListener('mousedown', handleOutsideInteraction);
+      document.addEventListener('touchstart', handleOutsideInteraction, { passive: true });
+    }, 100);
+
+    return () => {
+      clearTimeout(delayTimer);
+      document.removeEventListener('mousedown', handleOutsideInteraction);
+      document.removeEventListener('touchstart', handleOutsideInteraction);
+    };
+  }, [welcomeDismissed, products.length, sales.length]);
 
   // Pro Subscription Expiry calculation with 5-Day and 2-Day Alerts
   const subStatus = getSubscriptionStatus(settings);
@@ -293,46 +341,66 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
         </div>
       )}
 
-      {/* First-Time / Empty State Onboarding Card */}
+      {/* First-Time / Empty State Onboarding Card (Auto disappears in 60s or on touch/click outside) */}
       {!welcomeDismissed && products.length === 0 && sales.length === 0 && (
-        <div className="bg-gradient-to-br from-emerald-900 to-slate-900 text-white p-4 rounded-xl shadow-sm border border-emerald-800/40 relative">
-          <button
-            type="button"
-            onClick={() => {
-              setWelcomeDismissed(true);
-              sessionStorage.setItem('smartbiz_welcome_dismissed', 'true');
-            }}
-            className="absolute top-3 right-3 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Dismiss welcome message"
-          >
-            <X className="w-4 h-4" />
-          </button>
-          <div className="flex items-start gap-3 pr-6">
+        <div
+          ref={welcomeCardRef}
+          className="bg-gradient-to-br from-emerald-900 to-slate-900 text-white p-4 rounded-xl shadow-md border border-emerald-800/60 relative overflow-hidden animate-in fade-in duration-300"
+        >
+          {/* Subtle Top 60s Progress Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-950/80">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-400 to-amber-400 transition-all duration-1000 ease-linear"
+              style={{ width: `${(welcomeSecondsRemaining / 60) * 100}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between absolute top-2.5 right-3 gap-2">
+            <span className="text-[10px] text-emerald-300/90 font-mono font-semibold flex items-center gap-1">
+              <Clock className="w-3 h-3 text-emerald-400" />
+              <span>{welcomeSecondsRemaining}s</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleDismissWelcome}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              title="Dismiss welcome message"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-start gap-3 pr-14 pt-1">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
               <Sparkles className="w-5 h-5 text-emerald-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-bold text-white">Welcome to SmartBiz Pocket</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-white">Welcome to SmartBiz Pocket</h3>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-medium">
+                  Auto-closes in {welcomeSecondsRemaining}s
+                </span>
+              </div>
               <p className="text-xs text-slate-300 mt-1 leading-relaxed">
                 Your store is fresh and ready to trade offline. Begin by adding your stock items or recording your first daily sale or expense.
               </p>
               <div className="mt-3 flex items-center flex-wrap gap-2">
                 <button
                   onClick={onQuickAddProduct}
-                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold rounded-lg shadow-xs transition-colors flex items-center gap-1"
+                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 text-xs font-bold rounded-lg shadow-xs transition-all flex items-center gap-1 cursor-pointer"
                 >
                   <Package className="w-3.5 h-3.5" />
                   <span>Add First Item</span>
                 </button>
                 <button
                   onClick={onQuickAddSale}
-                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 text-xs font-semibold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
                 >
                   <span>+ Record Sale</span>
                 </button>
                 <button
                   onClick={onQuickAddExpense}
-                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 text-xs font-semibold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
                 >
                   <span>+ Record Expense</span>
                 </button>

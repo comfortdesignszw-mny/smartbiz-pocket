@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Download, Smartphone, X, Check, Share, ShieldCheck, Clock, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Download, Smartphone, X, Check, Share, ShieldCheck } from 'lucide-react';
 import { usePWAInstall } from './usePWAInstall';
 
 export const PWAInstallBanner: React.FC = () => {
@@ -7,9 +7,6 @@ export const PWAInstallBanner: React.FC = () => {
   const [isDismissed, setIsDismissed] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
   const [installing, setInstalling] = useState(false);
-  const [secondsRemaining, setSecondsRemaining] = useState(60); // 1 minute auto-dismiss
-
-  const promptRef = useRef<HTMLDivElement>(null);
 
   // Check if previously dismissed
   useEffect(() => {
@@ -25,43 +22,6 @@ export const PWAInstallBanner: React.FC = () => {
     sessionStorage.setItem('smartbiz_pwa_dismissed', 'true');
     localStorage.setItem('smartbiz_pwa_prompt_dismissed', 'true');
   };
-
-  // 1-minute (60 seconds) countdown timer to close automatically
-  useEffect(() => {
-    if (isInstalled || isDismissed) return;
-
-    const interval = setInterval(() => {
-      setSecondsRemaining(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          handleDismiss();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isInstalled, isDismissed]);
-
-  // Touch or click outside listener to dismiss instantly
-  useEffect(() => {
-    if (isInstalled || isDismissed) return;
-
-    const handleOutsideInteraction = (e: MouseEvent | TouchEvent) => {
-      if (promptRef.current && !promptRef.current.contains(e.target as Node)) {
-        handleDismiss();
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideInteraction);
-    document.addEventListener('touchstart', handleOutsideInteraction, { passive: true });
-
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideInteraction);
-      document.removeEventListener('touchstart', handleOutsideInteraction);
-    };
-  }, [isInstalled, isDismissed]);
 
   // Suppress banner if installed or dismissed
   if (isInstalled || isDismissed) {
@@ -86,84 +46,40 @@ export const PWAInstallBanner: React.FC = () => {
 
   return (
     <>
-      {/* Outside Click / Touch Overlay Backdrop */}
-      <div
-        onClick={handleDismiss}
-        className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[1px] flex items-start justify-center pt-3 sm:pt-4 px-3 pointer-events-auto animate-in fade-in duration-200"
-      >
-        {/* The Green Prompt Message Box (stops propagation so tapping inside does NOT dismiss) */}
-        <div
-          ref={promptRef}
-          onClick={e => e.stopPropagation()}
-          className="w-full max-w-md bg-gradient-to-br from-emerald-900 via-emerald-950 to-slate-950 text-white rounded-2xl shadow-2xl border-2 border-emerald-500/50 p-3.5 sm:p-4 relative overflow-hidden animate-in slide-in-from-top-4 duration-300"
-        >
-          {/* Subtle Top Ambient Glow & 60s Progress Bar */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-950/80">
-            <div
-              className="h-full bg-gradient-to-r from-emerald-400 to-amber-400 transition-all duration-1000 ease-linear"
-              style={{ width: `${(secondsRemaining / 60) * 100}%` }}
-            />
+      <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white px-3.5 py-2.5 flex items-center justify-between gap-2 shadow-inner border-b border-emerald-600/50">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center text-emerald-200 shrink-0">
+            <Smartphone className="w-4 h-4 text-emerald-300" />
           </div>
-
-          <div className="flex items-start justify-between gap-3 pt-1">
-            <div className="flex items-start gap-2.5 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shrink-0 shadow-inner">
-                <Smartphone className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <h3 className="text-sm font-extrabold text-white tracking-wide flex items-center gap-1">
-                    <span>Install SmartBiz Pocket</span>
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  </h3>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 font-bold uppercase tracking-wider">
-                    100% Offline App
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-200 mt-0.5 leading-snug">
-                  Launch instantly from your home screen with zero internet or data consumption.
-                </p>
-              </div>
-            </div>
-
-            {/* Instant Dismiss Button */}
-            <button
-              onClick={handleDismiss}
-              title="Close prompt"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Action Row & Timer Indicator */}
-          <div className="mt-3 pt-2.5 border-t border-emerald-800/50 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1 text-[10px] text-emerald-300 font-medium">
-              <Clock className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>
-                Closes in <strong className="text-amber-300 font-mono font-bold">{secondsRemaining}s</strong> • Tap outside to close
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+              <span>Install SmartBiz Pocket</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/30 text-emerald-100 border border-emerald-400/30 font-semibold">
+                Offline
               </span>
             </div>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={handleDismiss}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                Dismiss
-              </button>
-              <button
-                type="button"
-                onClick={handleInstallClick}
-                disabled={installing}
-                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 active:scale-95 text-slate-950 text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5 stroke-[3]" />
-                <span>{installing ? 'Opening...' : 'Install Now'}</span>
-              </button>
-            </div>
+            <p className="text-[10px] text-emerald-100/90 truncate">
+              Add to your phone for instant, data-free access
+            </p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={handleInstallClick}
+            disabled={installing}
+            className="px-2.5 py-1 rounded-lg bg-white text-emerald-800 hover:bg-emerald-50 active:scale-95 text-xs font-bold flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+          >
+            <Download className="w-3 h-3 stroke-[2.5]" />
+            <span>{installing ? 'Installing...' : 'Install'}</span>
+          </button>
+          <button
+            onClick={handleDismiss}
+            title="Dismiss"
+            className="p-1 rounded-md text-emerald-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -188,7 +104,7 @@ export const PWAInstallBanner: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowIOSModal(false)}
-                className="p-1 rounded-full text-slate-400 hover:bg-slate-100"
+                className="p-1 rounded-full text-slate-400 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
