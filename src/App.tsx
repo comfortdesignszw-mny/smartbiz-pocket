@@ -36,6 +36,7 @@ import { SettingsModule } from './components/settings/SettingsModule';
 import { FlutterHubModule } from './components/flutter/FlutterHubModule';
 import { Footer } from './components/common/Footer';
 import { LegalModal, LegalDocType } from './components/legal/LegalModal';
+import { RevenueCatPaywallModal } from './components/common/RevenueCatPaywallModal';
 
 export default function App() {
   const [state, setState] = useState<SmartBizState>(() => loadSmartBizState());
@@ -43,6 +44,7 @@ export default function App() {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isPhoneFrame, setIsPhoneFrame] = useState(true);
   const [legalDocModal, setLegalDocModal] = useState<LegalDocType | null>(null);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
 
   // Quick action modal open states for fast 1-tap from dashboard
   const [salesQuickOpen, setSalesQuickOpen] = useState(false);
@@ -392,7 +394,7 @@ export default function App() {
           isPhoneFrame={isPhoneFrame}
           onTogglePhoneFrame={() => setIsPhoneFrame(!isPhoneFrame)}
           onOpenSettings={() => setActiveTab('settings')}
-          onTogglePremium={handleTogglePremium}
+          onTogglePremium={() => setIsPaywallOpen(true)}
         />
 
         {/* Main Content Area */}
@@ -501,7 +503,7 @@ export default function App() {
               state={state}
               onUpdateBusiness={handleUpdateBusiness}
               onUpdateSettings={handleUpdateSettings}
-              onTogglePremium={handleTogglePremium}
+              onTogglePremium={() => setIsPaywallOpen(true)}
               onOpenFlutterHub={() => setActiveTab('flutter')}
               onOpenLegal={doc => setLegalDocModal(doc)}
             />
@@ -522,6 +524,15 @@ export default function App() {
           isMoreOpen={isMoreOpen}
           onToggleMore={setIsMoreOpen}
           isPremium={state.settings.isPremium}
+          onOpenLegal={doc => setLegalDocModal(doc)}
+        />
+
+        {/* RevenueCat Paywall Modal ($2/mo Pro Plan) */}
+        <RevenueCatPaywallModal
+          isOpen={isPaywallOpen}
+          onClose={() => setIsPaywallOpen(false)}
+          isPremium={state.settings.isPremium}
+          onTogglePremium={handleTogglePremium}
           onOpenLegal={doc => setLegalDocModal(doc)}
         />
 

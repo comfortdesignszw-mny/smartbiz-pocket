@@ -239,6 +239,67 @@ export const FlutterHubModule: React.FC = () => {
         })}
       </div>
 
+      {/* RevenueCat Credentials Banner if selected */}
+      {activeSubTab === 'revenuecat' && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 space-y-2 text-xs">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-amber-500" />
+                <span className="font-bold text-slate-800">RevenueCat Flutter v8+ Architecture</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                  Production & Test
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-mono">
+                API Key (iOS & Android): <strong className="text-emerald-700">test_RVdhYytnLyhMFndYhQvPFRKjhYI</strong>
+              </p>
+              <p className="text-[11px] text-slate-600">
+                Entitlement: <strong className="font-mono text-amber-800">smartbiz_pocket_pro</strong> • Pro Plan: <strong>$2.00 / month</strong>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleCopy('flutter pub add purchases_flutter purchases_ui_flutter', 'pub_cmd')}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
+              >
+                {copiedKey === 'pub_cmd' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-300">Pub Cmd Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy pub add</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => handleCopy('test_RVdhYytnLyhMFndYhQvPFRKjhYI', 'rc_key')}
+                className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+              >
+                {copiedKey === 'rc_key' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">Key Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy API Key</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+          <div className="text-[10px] text-slate-500 bg-white/70 p-2 rounded-lg border border-amber-500/20 flex items-center justify-between">
+            <span>Includes RevenueCat Paywalls (<code>RevenueCatUI.presentPaywall</code>) and Customer Center (<code>RevenueCatUI.presentCustomerCenter</code>).</span>
+          </div>
+        </div>
+      )}
+
       {/* Code Viewer Container */}
       <div className="bg-slate-900 rounded-xl overflow-hidden shadow-lg border border-slate-800">
         <div className="bg-slate-950 px-4 py-2.5 flex items-center justify-between border-b border-slate-800">

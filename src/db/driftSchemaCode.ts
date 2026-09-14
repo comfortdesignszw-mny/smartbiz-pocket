@@ -440,28 +440,277 @@ class LocalBackupEngine {
   }
 }`;
 
-export const FLUTTER_REVENUECAT_CODE = `// lib/core/subscriptions/revenuecat_service.dart
-// RevenueCat Subscriptions Architecture Placeholder (Feature-flag guarded)
+export const FLUTTER_REVENUECAT_CODE = `// ============================================================================
+// lib/core/subscriptions/revenuecat_service.dart
+// SmartBiz Pocket – Production RevenueCat Subscriptions & Paywall Architecture
+// ============================================================================
+// Dependencies required in pubspec.yaml:
+//   purchases_flutter: ^8.0.0
+//   purchases_ui_flutter: ^8.0.0
+// ============================================================================
+
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
-class RevenueCatService {
-  static const String _apiKeyAndroid = 'goog_placeholder_smartbiz_pocket';
-  static const String entitlementPremium = 'smartbiz_premium';
-
-  static Future<void> initialize() async {
-    await Purchases.setLogLevel(LogLevel.debug);
-    PurchasesConfiguration configuration = PurchasesConfiguration(_apiKeyAndroid);
-    await Purchases.configure(configuration);
+/// Top-level initialization using your RevenueCat API credentials
+Future<void> initializeRevenueCat({String? appUserId}) async {
+  // Platform-specific API keys
+  String apiKey;
+  if (Platform.isIOS) {
+    apiKey = 'test_RVdhYytnLyhMFndYhQvPFRKjhYI';
+  } else if (Platform.isAndroid) {
+    apiKey = 'test_RVdhYytnLyhMFndYhQvPFRKjhYI';
+  } else {
+    throw UnsupportedError('Platform not supported for RevenueCat in-app purchases');
   }
 
-  /// Checks if business has active premium features
-  static Future<bool> isUserPremium() async {
+  // Set verbose debug logs in development for easy troubleshooting
+  if (kDebugMode) {
+    await Purchases.setLogLevel(LogLevel.debug);
+  }
+
+  // Build configuration with optional user ID
+  PurchasesConfiguration configuration = PurchasesConfiguration(apiKey);
+  if (appUserId != null && appUserId.isNotEmpty) {
+    configuration.appUserID = appUserId;
+  }
+
+  await Purchases.configure(configuration);
+}
+
+/// Comprehensive RevenueCat Service for SmartBiz Pocket
+class RevenueCatService {
+  // --------------------------------------------------------------------------
+  // Constants & Entitlements
+  // --------------------------------------------------------------------------
+  /// Your primary Pro Plan entitlement configured in the RevenueCat dashboard
+  static const String entitlementPro = 'smartbiz_pocket_pro';
+
+  /// Standard monthly package identifier for $2.00 / month Pro plan
+  static const String monthlyPackageId = '\$rc_monthly';
+  static const String monthlyProductId = 'smartbiz_pro_monthly';
+
+  // Reactive state notifier for subscription status across the app
+  static final ValueNotifier<bool> isProNotifier = ValueNotifier<bool>(false);
+
+  // --------------------------------------------------------------------------
+  // 1. Initialization & Customer Info Stream
+  // --------------------------------------------------------------------------
+  /// Initializes the SDK and attaches a real-time customer info update listener
+  static Future<void> initialize({String? appUserId}) async {
     try {
-      CustomerInfo customerInfo = await Purchases.getCustomerInfo();
-      return customerInfo.entitlements.all[entitlementPremium]?.isActive ?? false;
+      await initializeRevenueCat(appUserId: appUserId);
+
+      // Listen to real-time subscription changes (renewals, cancellations, promos)
+      Purchases.addCustomerInfoUpdateListener((customerInfo) {
+        _updateEntitlementStatus(customerInfo);
+      });
+
+      // Perform initial entitlement check
+      await checkEntitlementStatus();
     } catch (e) {
-      // Offline fallback: Default to local free tier limits (100 sales/mo, 50 products)
+      debugPrint('[RevenueCat] Initialization error: \$e');
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 2. Entitlement Checking
+  // --------------------------------------------------------------------------
+  /// Checks whether the user has an active "smartbiz_pocket_pro" entitlement
+  static Future<bool> isUserPro() async {
+    try {
+      final customerInfo = await Purchases.getCustomerInfo();
+      return _updateEntitlementStatus(customerInfo);
+    } catch (e) {
+      debugPrint('[RevenueCat] Error getting customer info: \$e');
+      // Offline fallback: keep existing in-memory state or allow cached access
+      return isProNotifier.value;
+    }
+  }
+
+  /// Synchronous getter from cached reactive state
+  static bool get isCurrentlyPro => isProNotifier.value;
+
+  /// Helper to extract entitlement state from CustomerInfo
+  static bool _updateEntitlementStatus(CustomerInfo customerInfo) {
+    final EntitlementInfo? entitlement = customerInfo.entitlements.all[entitlementPro];
+    final bool hasPro = entitlement != null && entitlement.isActive;
+    isProNotifier.value = hasPro;
+    debugPrint('[RevenueCat] Entitlement "\$entitlementPro" active: \$hasPro');
+    return hasPro;
+  }
+
+  static Future<void> checkEntitlementStatus() async {
+    await isUserPro();
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. RevenueCat Paywalls (purchases_ui_flutter)
+  // --------------------------------------------------------------------------
+  /// Presents the native RevenueCat Paywall configured in the dashboard.
+  /// If the user completes purchase or restores, it automatically updates entitlements.
+  static Future<PaywallResult> presentProPaywall({Offering? offering}) async {
+    try {
+      final PaywallResult result = await RevenueCatUI.presentPaywall(
+        offering: offering,
+        displayCloseButton: true,
+      );
+
+      debugPrint('[RevenueCat Paywall] Result: \$result');
+      await isUserPro(); // Refresh entitlement status
+      return result;
+    } on PlatformException catch (e) {
+      debugPrint('[RevenueCat Paywall] Error: \${e.message}');
+      return PaywallResult.error;
+    } catch (e) {
+      debugPrint('[RevenueCat Paywall] Unexpected error: \$e');
+      return PaywallResult.error;
+    }
+  }
+
+  /// Conditionally presents the paywall ONLY if the user does NOT have the Pro entitlement
+  static Future<PaywallResult> presentPaywallIfNeeded() async {
+    try {
+      final PaywallResult result = await RevenueCatUI.presentPaywallIfNeeded(
+        entitlementPro,
+        displayCloseButton: true,
+      );
+      debugPrint('[RevenueCat Paywall If Needed] Result: \$result');
+      await isUserPro();
+      return result;
+    } catch (e) {
+      debugPrint('[RevenueCat Paywall If Needed] Error: \$e');
+      return PaywallResult.error;
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 4. RevenueCat Customer Center (purchases_ui_flutter)
+  // --------------------------------------------------------------------------
+  /// Presents the self-service Customer Center where merchants can view active
+  /// subscription details ($2/mo), manage plans, switch payment methods, or cancel.
+  static Future<void> presentCustomerCenter() async {
+    try {
+      await RevenueCatUI.presentCustomerCenter();
+      await isUserPro();
+    } on PlatformException catch (e) {
+      debugPrint('[RevenueCat Customer Center] Error: \${e.message}');
+    } catch (e) {
+      debugPrint('[RevenueCat Customer Center] Unexpected error: \$e');
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. Offerings & Custom Purchase Handling
+  // --------------------------------------------------------------------------
+  /// Fetches current Paywall offerings from RevenueCat
+  static Future<Offerings?> getOfferings() async {
+    try {
+      final offerings = await Purchases.getOfferings();
+      if (offerings.current != null) {
+        debugPrint('[RevenueCat] Current offering: \${offerings.current!.identifier}');
+        return offerings;
+      }
+    } on PlatformException catch (e) {
+      final errorCode = PurchasesErrorHelper.getErrorCode(e);
+      debugPrint('[RevenueCat] Get offerings error [\$errorCode]: \${e.message}');
+    } catch (e) {
+      debugPrint('[RevenueCat] Unexpected get offerings error: \$e');
+    }
+    return null;
+  }
+
+  /// Purchases a specific Package (e.g. Pro Monthly $2/mo) with full error classification
+  static Future<PurchaseResult> purchasePackage(Package package) async {
+    try {
+      final CustomerInfo customerInfo = await Purchases.purchasePackage(package);
+      final bool success = _updateEntitlementStatus(customerInfo);
+      return PurchaseResult(
+        isSuccess: success,
+        customerInfo: customerInfo,
+      );
+    } on PlatformException catch (e) {
+      final PurchasesErrorCode errorCode = PurchasesErrorHelper.getErrorCode(e);
+      debugPrint('[RevenueCat Purchase Error] Code: \$errorCode, Message: \${e.message}');
+
+      if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
+        return PurchaseResult(isSuccess: false, isUserCancelled: true);
+      }
+
+      return PurchaseResult(
+        isSuccess: false,
+        errorMessage: e.message ?? 'Unknown purchase error occurred.',
+        errorCode: errorCode,
+      );
+    } catch (e) {
+      return PurchaseResult(
+        isSuccess: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 6. Restore Purchases
+  // --------------------------------------------------------------------------
+  /// Restores previous purchases (essential for users switching or reinstalling on budget phones)
+  static Future<bool> restorePurchases() async {
+    try {
+      final CustomerInfo customerInfo = await Purchases.restorePurchases();
+      final bool hasPro = _updateEntitlementStatus(customerInfo);
+      debugPrint('[RevenueCat] Restore complete. Pro active: \$hasPro');
+      return hasPro;
+    } on PlatformException catch (e) {
+      debugPrint('[RevenueCat Restore Error]: \${e.message}');
+      return false;
+    } catch (e) {
+      debugPrint('[RevenueCat Restore Error]: \$e');
       return false;
     }
   }
-}`;
+
+  // --------------------------------------------------------------------------
+  // 7. User Authentication & Logout
+  // --------------------------------------------------------------------------
+  /// Associates the device with the merchant's business ID
+  static Future<void> logIn(String businessId) async {
+    try {
+      final LogInResult result = await Purchases.logIn(businessId);
+      _updateEntitlementStatus(result.customerInfo);
+    } catch (e) {
+      debugPrint('[RevenueCat LogIn Error]: \$e');
+    }
+  }
+
+  /// Logs out to anonymous user state
+  static Future<void> logOut() async {
+    try {
+      final CustomerInfo customerInfo = await Purchases.logOut();
+      _updateEntitlementStatus(customerInfo);
+    } catch (e) {
+      debugPrint('[RevenueCat LogOut Error]: \$e');
+    }
+  }
+}
+
+/// Helper data class for purchase outcomes
+class PurchaseResult {
+  final bool isSuccess;
+  final bool isUserCancelled;
+  final String? errorMessage;
+  final PurchasesErrorCode? errorCode;
+  final CustomerInfo? customerInfo;
+
+  PurchaseResult({
+    required this.isSuccess,
+    this.isUserCancelled = false,
+    this.errorMessage,
+    this.errorCode,
+    this.customerInfo,
+  });
+}
+`;
