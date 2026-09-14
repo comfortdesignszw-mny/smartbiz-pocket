@@ -16,10 +16,13 @@ import {
   FileText,
   ShieldCheck,
   Scale,
+  Key,
+  PhoneCall,
 } from 'lucide-react';
 import { SmartBizState, Business, AppSettings, CurrencyCode } from '../../types';
 import { usePWAInstall } from '../common/usePWAInstall';
 import { LegalDocType } from '../legal/LegalModal';
+import { getSubscriptionStatus, ECOCASH_USSD_CODE } from '../../utils/licenseKey';
 
 interface SettingsModuleProps {
   state: SmartBizState;
@@ -245,46 +248,71 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         )}
       </div>
 
-      {/* 4. Plan & RevenueCat Architecture Status */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Crown className="w-4 h-4 text-amber-500" />
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Subscription & Plan Tier
-            </h3>
+      {/* 4. Plan & Production Paywall Status */}
+      {(() => {
+        const subStatus = getSubscriptionStatus(settings);
+        return (
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Crown className="w-4 h-4 text-amber-500" />
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Subscription & Plan Tier
+                </h3>
+              </div>
+              <span
+                className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
+                  subStatus.isPro
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                    : subStatus.isExpired
+                    ? 'bg-rose-100 text-rose-900 border border-rose-300'
+                    : 'bg-slate-100 text-slate-700'
+                }`}
+              >
+                {subStatus.isPro
+                  ? `PRO PLAN ACTIVE (${subStatus.daysRemaining}d)`
+                  : subStatus.isExpired
+                  ? 'PRO EXPIRED'
+                  : 'FREE PLAN'}
+              </span>
+            </div>
+
+            <div className="text-xs space-y-1.5 text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200/80">
+              <div className="flex items-center justify-between font-bold text-slate-900 pb-1 border-b border-slate-200">
+                <span>SmartBiz Pro ($2.00 / 30 Days)</span>
+                <span className="text-emerald-700">EcoCash Direct USSD</span>
+              </div>
+              <p>
+                • <strong>Payment Code:</strong> <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono text-[11px] text-amber-700 font-bold">{ECOCASH_USSD_CODE}</code>
+              </p>
+              <p>
+                • <strong>Features:</strong> Unlimited sales, unlimited stock catalog, daily auto-backup alerts, and the complete Flutter SQLite architecture.
+              </p>
+              {subStatus.isPro && (
+                <p className="text-emerald-700 font-semibold pt-1">
+                  ✓ Active Access: Expires on {subStatus.expiryDateStr} ({subStatus.daysRemaining} days remaining).
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={onTogglePremium}
+              className={`w-full py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                subStatus.isPro
+                  ? 'bg-slate-900 text-white hover:bg-slate-800'
+                  : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-emerald-700/20'
+              }`}
+            >
+              <Crown className="w-4 h-4 text-amber-300" />
+              <span>
+                {subStatus.isPro
+                  ? 'Manage Subscription / View Key & Expiry'
+                  : 'Subscribe for $2 / month (EcoCash Paywall)'}
+              </span>
+            </button>
           </div>
-          <span
-            className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
-              settings.isPremium
-                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                : 'bg-slate-100 text-slate-700'
-            }`}
-          >
-            {settings.isPremium ? 'PRO UNLOCKED' : 'FREE PLAN'}
-          </span>
-        </div>
-
-        <div className="text-xs space-y-1.5 text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200/80">
-          <p>
-            • <strong>Free Tier:</strong> Basic offline sales, stock inventory, and debtor tracking.
-          </p>
-          <p>
-            • <strong>Pro Tier ($2.00 Monthly):</strong> Powered by <strong>RevenueCat Paywall</strong>. Charges <strong>$2 monthly</strong> for unlimited sales, unlimited catalog, automatic backup alerts, custom branded receipts, and the Flutter native offline blueprint.
-          </p>
-        </div>
-
-        <button
-          onClick={onTogglePremium}
-          className={`w-full py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all ${
-            settings.isPremium
-              ? 'bg-slate-100 text-slate-800 border border-slate-200 hover:bg-slate-200'
-              : 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/20'
-          }`}
-        >
-          {settings.isPremium ? 'Downgrade to Free Tier (Test)' : '⚡ Simulate Pro Plan ($2/mo via RevenueCat)'}
-        </button>
-      </div>
+        );
+      })()}
 
       {/* Legal & Regulatory Policies */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2.5">

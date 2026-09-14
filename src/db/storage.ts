@@ -65,13 +65,25 @@ export function loadSmartBizState(): SmartBizState {
       return INITIAL_STATE;
     }
     const parsed = JSON.parse(raw);
+    const storedSettings = parsed.settings || {};
+
+    // Check if subscription has expired (past 30 days)
+    let isPremiumActive = storedSettings.isPremium || false;
+    if (isPremiumActive && storedSettings.subscriptionExpiryDate) {
+      const expiryTime = new Date(storedSettings.subscriptionExpiryDate).getTime();
+      if (expiryTime <= Date.now()) {
+        isPremiumActive = false;
+      }
+    }
+
     return {
       ...INITIAL_STATE,
       ...parsed,
       settings: {
         ...INITIAL_STATE.settings,
-        ...(parsed.settings || {}),
-        isLocked: parsed.settings?.pinLockEnabled ? true : false,
+        ...storedSettings,
+        isPremium: isPremiumActive,
+        isLocked: storedSettings.pinLockEnabled ? true : false,
       },
     };
   } catch (err) {

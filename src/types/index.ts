@@ -164,7 +164,11 @@ export interface AppSettings {
   currency: CurrencyCode;
   currencySymbol: string;
   lowStockThreshold: number;
-  isPremium: boolean; // RevenueCat simulation
+  isPremium: boolean;
+  subscriptionKey?: string;
+  subscriptionExpiryDate?: string; // ISO timestamp when Pro expires (30 days from activation)
+  subscriptionActivatedAt?: string;
+  subscriptionPaymentMethod?: 'ecocash_ussd' | 'revenuecat' | 'admin_key';
   language: 'en' | 'sn' | 'nd'; // English, Shona, Ndebele
   notificationsEnabled: boolean;
   autoBackupInterval: 'daily' | 'weekly' | 'manual';

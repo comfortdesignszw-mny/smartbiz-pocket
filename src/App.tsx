@@ -341,11 +341,40 @@ export default function App() {
     setState(prev => ({ ...prev, settings: sett }));
   };
 
-  const handleTogglePremium = () => {
+  const handleActivateSubscription = (key: string, days: number = 30) => {
+    const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     setState(prev => ({
       ...prev,
-      settings: { ...prev.settings, isPremium: !prev.settings.isPremium },
+      settings: {
+        ...prev.settings,
+        isPremium: true,
+        subscriptionKey: key,
+        subscriptionExpiryDate: expiryDate,
+        subscriptionActivatedAt: new Date().toISOString(),
+        subscriptionPaymentMethod: 'ecocash_ussd',
+      },
     }));
+    return { success: true, expiryDate };
+  };
+
+  const handleDowngradeSubscription = () => {
+    setState(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        isPremium: false,
+        subscriptionKey: undefined,
+        subscriptionExpiryDate: undefined,
+      },
+    }));
+  };
+
+  const handleTogglePremium = () => {
+    if (state.settings.isPremium) {
+      handleDowngradeSubscription();
+    } else {
+      setIsPaywallOpen(true);
+    }
   };
 
   // 7. Backup & Restore
@@ -527,12 +556,15 @@ export default function App() {
           onOpenLegal={doc => setLegalDocModal(doc)}
         />
 
-        {/* RevenueCat Paywall Modal ($2/mo Pro Plan) */}
+        {/* RevenueCat Paywall Modal ($2/30 days Pro Plan via EcoCash USSD) */}
         <RevenueCatPaywallModal
           isOpen={isPaywallOpen}
           onClose={() => setIsPaywallOpen(false)}
-          isPremium={state.settings.isPremium}
-          onTogglePremium={handleTogglePremium}
+          settings={state.settings}
+          businessName={state.business.name}
+          businessPhone={state.business.phone}
+          onActivateSubscription={handleActivateSubscription}
+          onDowngrade={handleDowngradeSubscription}
           onOpenLegal={doc => setLegalDocModal(doc)}
         />
 

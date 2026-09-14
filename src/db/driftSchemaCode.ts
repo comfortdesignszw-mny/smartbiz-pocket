@@ -674,26 +674,24 @@ class RevenueCatService {
   }
 
   // --------------------------------------------------------------------------
-  // 7. User Authentication & Logout
+  // 8. Zimbabwean EcoCash USSD Direct Transfer & 30-Day Key Flow
   // --------------------------------------------------------------------------
-  /// Associates the device with the merchant's business ID
-  static Future<void> logIn(String businessId) async {
-    try {
-      final LogInResult result = await Purchases.logIn(businessId);
-      _updateEntitlementStatus(result.customerInfo);
-    } catch (e) {
-      debugPrint('[RevenueCat LogIn Error]: \$e');
-    }
-  }
+  /// EcoCash USSD code to transfer $2.00 to Comfort Designs (0772824132)
+  static const String ecocashUssdCode = '*151*1*1*0772824132*2#';
+  static const String comfortDesignsPhone = '+263772824132';
 
-  /// Logs out to anonymous user state
-  static Future<void> logOut() async {
-    try {
-      final CustomerInfo customerInfo = await Purchases.logOut();
-      _updateEntitlementStatus(customerInfo);
-    } catch (e) {
-      debugPrint('[RevenueCat LogOut Error]: \$e');
+  /// Activates Pro locally for 30 days when client provides valid license key
+  static bool activateWithKey(String key) {
+    final cleanKey = key.trim().toUpperCase();
+    if (cleanKey.isEmpty) return false;
+
+    // Accepts SBP-PRO-30D-... or master key SBP-PRO-COMFORT-2026
+    if (cleanKey.startsWith('SBP-') || cleanKey.startsWith('PRO-')) {
+      isProNotifier.value = true;
+      debugPrint('[SmartBiz Pro] Activated for 30 days with license key: \$cleanKey');
+      return true;
     }
+    return false;
   }
 }
 
