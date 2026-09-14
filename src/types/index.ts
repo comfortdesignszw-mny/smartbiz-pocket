@@ -169,6 +169,7 @@ export interface AppSettings {
   subscriptionExpiryDate?: string; // ISO timestamp when Pro expires (30 days from activation)
   subscriptionActivatedAt?: string;
   subscriptionPaymentMethod?: 'ecocash_ussd' | 'revenuecat' | 'admin_key';
+  adminPin?: string; // Secret PIN for Comfort Designs Key Generator (changeable anytime)
   language: 'en' | 'sn' | 'nd'; // English, Shona, Ndebele
   notificationsEnabled: boolean;
   autoBackupInterval: 'daily' | 'weekly' | 'manual';

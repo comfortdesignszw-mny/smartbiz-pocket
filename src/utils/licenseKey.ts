@@ -24,6 +24,7 @@ const MASTER_KEYS = [
 /**
  * Generates an authentic 30-day Pro license key
  * Format: SBP-PRO-30D-[RANDOM4]-[CHECKSUM4]
+ * Can generate unlimited unique keys for unlimited users.
  */
 export function generateSubscriptionKey(days: number = 30, clientHint: string = ''): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid ambiguous chars
@@ -41,6 +42,25 @@ export function generateSubscriptionKey(days: number = 30, clientHint: string = 
   const durationTag = `${days}D`;
 
   return `SBP-PRO-${durationTag}-${salt}-${checksum}`;
+}
+
+/**
+ * Creates a pre-formatted WhatsApp share link for Comfort Designs to send the key to a client
+ */
+export function createCustomerKeyWhatsAppUrl(clientPhone: string, key: string, clientName: string = ''): string {
+  const cleanPhone = clientPhone.replace(/[^0-9]/g, '');
+  const target = cleanPhone.startsWith('0')
+    ? `263${cleanPhone.slice(1)}`
+    : cleanPhone.startsWith('263')
+    ? cleanPhone
+    : cleanPhone ? `263${cleanPhone}` : '';
+
+  const text = `Hello ${clientName || 'Merchant'}! 👋\n\nThank you for your $2.00 EcoCash payment.\n\nHere is your official 30-Day SmartBiz Pocket Pro License Key:\n🔑 ${key}\n\nTo activate:\n1. Open SmartBiz Pocket\n2. Tap the Pro Paywall / Crown icon\n3. Paste your key in Step 3 and tap "Activate 30-Day Pro Plan"\n\nEnjoy unlimited sales, catalog & backup alerts!\n— Comfort Designs (+263772824132)`;
+
+  if (target) {
+    return `https://wa.me/${target}?text=${encodeURIComponent(text)}`;
+  }
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
 /**

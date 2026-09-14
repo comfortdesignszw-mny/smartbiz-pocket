@@ -369,6 +369,16 @@ export default function App() {
     }));
   };
 
+  const handleUpdateAdminPin = (newPin: string) => {
+    setState(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        adminPin: newPin,
+      },
+    }));
+  };
+
   const handleTogglePremium = () => {
     if (state.settings.isPremium) {
       handleDowngradeSubscription();
@@ -564,6 +574,7 @@ export default function App() {
           businessName={state.business.name}
           businessPhone={state.business.phone}
           onActivateSubscription={handleActivateSubscription}
+          onUpdateAdminPin={handleUpdateAdminPin}
           onDowngrade={handleDowngradeSubscription}
           onOpenLegal={doc => setLegalDocModal(doc)}
         />

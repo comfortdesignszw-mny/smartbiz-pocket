@@ -11,10 +11,12 @@ import {
   ShieldCheck,
   Calendar,
   AlertCircle,
-  ExternalLink,
   Lock,
-  ArrowRight,
+  Unlock,
+  Plus,
   RefreshCw,
+  Send,
+  Sliders,
 } from 'lucide-react';
 import { LegalDocType } from '../legal/LegalModal';
 import { AppSettings } from '../../types';
@@ -30,7 +32,15 @@ import {
   getSubscriptionStatus,
   createWhatsAppProofUrl,
   createSmsProofUrl,
+  createCustomerKeyWhatsAppUrl,
 } from '../../utils/licenseKey';
+
+interface GeneratedKeyRecord {
+  id: string;
+  key: string;
+  createdAt: string;
+  clientHint: string;
+}
 
 interface RevenueCatPaywallModalProps {
   isOpen: boolean;
@@ -39,6 +49,7 @@ interface RevenueCatPaywallModalProps {
   businessName?: string;
   businessPhone?: string;
   onActivateSubscription: (key: string, days: number) => { success: boolean; expiryDate: string };
+  onUpdateAdminPin?: (newPin: string) => void;
   onDowngrade: () => void;
   onOpenLegal: (doc: LegalDocType) => void;
 }
@@ -50,6 +61,7 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
   businessName = '',
   businessPhone = '',
   onActivateSubscription,
+  onUpdateAdminPin,
   onDowngrade,
   onOpenLegal,
 }) => {
@@ -57,14 +69,28 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
   const [keyError, setKeyError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [copiedUssd, setCopiedUssd] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
 
   // Admin key generator state for Comfort Designs
   const [showAdminTool, setShowAdminTool] = useState(false);
   const [adminPin, setAdminPin] = useState('');
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
-  const [generatedKey, setGeneratedKey] = useState('');
+  const [adminError, setAdminError] = useState<string | null>(null);
   const [adminClientNote, setAdminClientNote] = useState('');
+  const [generatedKeys, setGeneratedKeys] = useState<GeneratedKeyRecord[]>(() => {
+    try {
+      const stored = localStorage.getItem('comfort_designs_admin_keys');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Admin PIN management
+  const [showPinChange, setShowPinChange] = useState(false);
+  const [newAdminPin, setNewAdminPin] = useState('');
+  const [confirmAdminPin, setConfirmAdminPin] = useState('');
+  const [pinChangeMsg, setPinChangeMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
   if (!isOpen) return null;
 
@@ -103,26 +129,70 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
     }
   };
 
-  // Admin Generator Unlock
+  // Admin Unlock (using secret PIN stored in settings, with no hint on screen)
   const handleUnlockAdmin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Default PIN or phone match
-    if (adminPin === '1234' || adminPin === '0772824132' || adminPin === 'comfort') {
+    setAdminError(null);
+
+    const currentSecretPin = settings.adminPin || '1234';
+    if (adminPin.trim() === currentSecretPin || adminPin.trim() === '0772824132') {
       setIsAdminUnlocked(true);
-      setGeneratedKey(generateSubscriptionKey(30, adminClientNote));
+      setAdminPin('');
     } else {
-      alert('Incorrect Admin PIN. (Default: 1234 or contact Comfort Designs)');
+      setAdminError('Access Denied: Incorrect secret PIN.');
     }
   };
 
-  const handleGenerateNewKey = () => {
-    setGeneratedKey(generateSubscriptionKey(30, adminClientNote));
+  // Generate a new 30-day key (always available to create unlimited keys for clients)
+  const handleGenerateKey = () => {
+    const newKeyStr = generateSubscriptionKey(30, adminClientNote);
+    const newRecord: GeneratedKeyRecord = {
+      id: `key-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      key: newKeyStr,
+      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      clientHint: adminClientNote.trim(),
+    };
+
+    const updated = [newRecord, ...generatedKeys].slice(0, 50); // keep up to 50 recent keys
+    setGeneratedKeys(updated);
+    try {
+      localStorage.setItem('comfort_designs_admin_keys', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+    setAdminClientNote('');
   };
 
-  const handleCopyGeneratedKey = () => {
-    navigator.clipboard.writeText(generatedKey);
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
+  const handleCopyKey = (keyRecord: GeneratedKeyRecord) => {
+    navigator.clipboard.writeText(keyRecord.key);
+    setCopiedKeyId(keyRecord.id);
+    setTimeout(() => setCopiedKeyId(null), 2000);
+  };
+
+  // Change Admin Secret PIN
+  const handleSaveNewPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinChangeMsg(null);
+
+    if (!newAdminPin || newAdminPin.length < 4) {
+      setPinChangeMsg({ text: 'PIN must be at least 4 characters.', isError: true });
+      return;
+    }
+    if (newAdminPin !== confirmAdminPin) {
+      setPinChangeMsg({ text: 'PINs do not match.', isError: true });
+      return;
+    }
+
+    if (onUpdateAdminPin) {
+      onUpdateAdminPin(newAdminPin);
+    }
+    setPinChangeMsg({ text: 'Admin Secret PIN changed successfully!', isError: false });
+    setNewAdminPin('');
+    setConfirmAdminPin('');
+    setTimeout(() => {
+      setShowPinChange(false);
+      setPinChangeMsg(null);
+    }, 2000);
   };
 
   const whatsAppUrl = createWhatsAppProofUrl(businessName, businessPhone);
@@ -345,7 +415,7 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
                       setEnteredKey(e.target.value);
                       if (keyError) setKeyError(null);
                     }}
-                    placeholder="e.g. SBP-PRO-30D-ABCD-1234"
+                    placeholder="Enter Pro Key received from Comfort Designs"
                     className="w-full text-xs font-mono font-bold p-2.5 bg-white border border-amber-300 rounded-lg focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-500 uppercase placeholder:normal-case placeholder:font-sans placeholder:font-normal"
                   />
                   {keyError && (
@@ -368,87 +438,221 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
             </div>
           </div>
 
-          {/* Admin License Key Generator for Comfort Designs */}
+          {/* ================================================================ */}
+          {/* Admin License Key Generator (Comfort Designs)                      */}
+          {/* ================================================================ */}
           <div className="pt-2 border-t border-slate-200">
-            <button
-              type="button"
-              onClick={() => setShowAdminTool(!showAdminTool)}
-              className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Lock className="w-3 h-3" />
-              <span>Comfort Designs Key Generator Tool (Admin)</span>
-            </button>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowAdminTool(!showAdminTool)}
+                className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                <span>Admin License Key Generator (Comfort Designs)</span>
+              </button>
+
+              {isAdminUnlocked && (
+                <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                  <Unlock className="w-3 h-3" />
+                  <span>Unlocked</span>
+                </span>
+              )}
+            </div>
 
             {showAdminTool && (
-              <div className="mt-2 p-3 bg-slate-900 text-slate-200 rounded-xl space-y-2.5 text-xs animate-fadeIn">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-amber-400">Admin License Generator</span>
+              <div className="mt-2.5 p-3.5 bg-slate-950 text-slate-200 rounded-xl space-y-3 text-xs border border-slate-800 shadow-xl animate-fadeIn">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <span className="font-bold text-amber-300">Comfort Designs Key Hub</span>
+                  </div>
                   <span className="text-[10px] text-slate-400 font-mono">0772824132</span>
                 </div>
 
                 {!isAdminUnlocked ? (
-                  <form onSubmit={handleUnlockAdmin} className="flex gap-2">
-                    <input
-                      type="password"
-                      value={adminPin}
-                      onChange={e => setAdminPin(e.target.value)}
-                      placeholder="Enter Admin PIN (Default: 1234)"
-                      className="flex-1 text-xs p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                    />
-                    <button
-                      type="submit"
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
-                    >
-                      Unlock
-                    </button>
-                  </form>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-[11px] text-slate-300">
-                      Generate authentic 30-day Pro keys to send to merchants after receiving $2 EcoCash:
-                    </p>
-
-                    <div className="flex items-center gap-2">
+                  /* Secret PIN Unlock Form (No password written on screen) */
+                  <form onSubmit={handleUnlockAdmin} className="space-y-2">
+                    <label className="block text-[11px] font-medium text-slate-300">
+                      Enter Admin Secret PIN to unlock generator:
+                    </label>
+                    <div className="flex gap-2">
                       <input
-                        type="text"
-                        value={adminClientNote}
-                        onChange={e => setAdminClientNote(e.target.value)}
-                        placeholder="Client note / phone (optional)"
-                        className="flex-1 text-xs p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                        type="password"
+                        value={adminPin}
+                        onChange={e => {
+                          setAdminPin(e.target.value);
+                          if (adminError) setAdminError(null);
+                        }}
+                        placeholder="Enter Secret PIN"
+                        className="flex-1 text-xs p-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500"
                       />
                       <button
-                        type="button"
-                        onClick={handleGenerateNewKey}
-                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1"
+                        type="submit"
+                        className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer"
                       >
-                        <RefreshCw className="w-3 h-3" />
-                        <span>New Key</span>
+                        Unlock
                       </button>
                     </div>
+                    {adminError && (
+                      <p className="text-[11px] text-rose-400 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{adminError}</span>
+                      </p>
+                    )}
+                  </form>
+                ) : (
+                  /* Unlocked Admin Panel */
+                  <div className="space-y-3">
+                    {/* Top Action Row: Always Available to Generate Unlimited Keys */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-semibold text-slate-300">
+                          Create New 30-Day Key for Client:
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowPinChange(!showPinChange)}
+                          className="text-[10px] text-slate-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Sliders className="w-3 h-3" />
+                          <span>Change Secret PIN</span>
+                        </button>
+                      </div>
 
-                    <div className="bg-slate-950 p-2 rounded-lg border border-slate-800 flex items-center justify-between font-mono text-emerald-400 text-xs">
-                      <span className="select-all font-bold">{generatedKey}</span>
-                      <button
-                        type="button"
-                        onClick={handleCopyGeneratedKey}
-                        className="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-sans font-bold flex items-center gap-1"
-                      >
-                        {copiedKey ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedKey ? 'Copied' : 'Copy'}</span>
-                      </button>
+                      {/* Optional Client Label and Generate Button */}
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={adminClientNote}
+                          onChange={e => setAdminClientNote(e.target.value)}
+                          placeholder="Client name or phone (e.g. Tendai 077...)"
+                          className="flex-1 text-xs p-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500 placeholder:text-slate-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleGenerateKey}
+                          className="py-2 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer shrink-0 transition-transform active:scale-95"
+                        >
+                          <Plus className="w-4 h-4 stroke-[3]" />
+                          <span>Create 30-Day Key</span>
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEnteredKey(generatedKey);
-                          setShowAdminTool(false);
-                        }}
-                        className="flex-1 py-1 px-2 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-bold text-center"
-                      >
-                        Use Key in Activation Field
-                      </button>
+                    {/* Change Admin Secret PIN Sub-Form */}
+                    {showPinChange && (
+                      <form onSubmit={handleSaveNewPin} className="p-2.5 bg-slate-900 rounded-lg border border-slate-800 space-y-2">
+                        <span className="text-[11px] font-bold text-amber-300 block">
+                          Change Admin Secret PIN:
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="password"
+                            value={newAdminPin}
+                            onChange={e => setNewAdminPin(e.target.value)}
+                            placeholder="New Secret PIN"
+                            className="text-xs p-1.5 bg-slate-950 border border-slate-700 rounded text-white"
+                          />
+                          <input
+                            type="password"
+                            value={confirmAdminPin}
+                            onChange={e => setConfirmAdminPin(e.target.value)}
+                            placeholder="Confirm New PIN"
+                            className="text-xs p-1.5 bg-slate-950 border border-slate-700 rounded text-white"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <button
+                            type="submit"
+                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold cursor-pointer"
+                          >
+                            Save New Secret PIN
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowPinChange(false)}
+                            className="text-[10px] text-slate-400 hover:text-white"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {pinChangeMsg && (
+                          <p className={`text-[10px] font-medium ${pinChangeMsg.isError ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            {pinChangeMsg.text}
+                          </p>
+                        )}
+                      </form>
+                    )}
+
+                    {/* List of Generated Keys (Admin only knows and shares) */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Generated Keys ({generatedKeys.length} total)</span>
+                        <span className="text-[10px] text-emerald-400">30-Day Pro Unlimited</span>
+                      </div>
+
+                      {generatedKeys.length === 0 ? (
+                        <div className="text-center py-3 text-slate-500 text-[11px] bg-slate-900/60 rounded-lg border border-slate-800">
+                          Tap &quot;Create 30-Day Key&quot; above to issue an activation code for a paying customer.
+                        </div>
+                      ) : (
+                        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                          {generatedKeys.map(rec => {
+                            const isCopied = copiedKeyId === rec.id;
+                            const shareUrl = createCustomerKeyWhatsAppUrl(rec.clientHint, rec.key, rec.clientHint);
+
+                            return (
+                              <div
+                                key={rec.id}
+                                className="p-2 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-between gap-2"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-mono text-xs text-amber-300 font-bold truncate select-all">
+                                    {rec.key}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                                    <span>{rec.createdAt}</span>
+                                    {rec.clientHint && (
+                                      <span className="text-slate-300 truncate max-w-[130px]">
+                                        • {rec.clientHint}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {/* Copy Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyKey(rec)}
+                                    className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+                                      isCopied
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                                    }`}
+                                  >
+                                    {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                    <span>{isCopied ? 'Copied' : 'Copy'}</span>
+                                  </button>
+
+                                  {/* WhatsApp Share Button */}
+                                  <a
+                                    href={shareUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white transition-colors cursor-pointer"
+                                    title="Send Key to Client via WhatsApp"
+                                  >
+                                    <Send className="w-3 h-3" />
+                                  </a>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

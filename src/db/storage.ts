@@ -45,6 +45,7 @@ export const INITIAL_STATE: SmartBizState = {
     currencySymbol: '$',
     lowStockThreshold: 5,
     isPremium: false,
+    adminPin: '1234',
     language: 'en',
     notificationsEnabled: true,
     autoBackupInterval: 'daily',
