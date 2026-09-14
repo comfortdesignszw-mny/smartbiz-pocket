@@ -18,6 +18,7 @@ import {
   AppSettings,
   BackupMetadata,
   InventoryMovement,
+  SubscriptionRecord,
 } from './types';
 import { Header } from './components/common/Header';
 import { Navigation, TabType } from './components/common/Navigation';
@@ -341,20 +342,89 @@ export default function App() {
     setState(prev => ({ ...prev, settings: sett }));
   };
 
-  const handleActivateSubscription = (key: string, days: number = 30) => {
+  const handleActivateSubscription = (
+    key: string,
+    days: number = 30,
+    subscriberName?: string,
+    subscriberPhone?: string
+  ) => {
+    const cleanKey = key.trim().toUpperCase();
     const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    const clientName = subscriberName?.trim() || state.business.name || 'Store Merchant';
+    const clientPhone = subscriberPhone?.trim() || state.business.phone || '';
+
+    const newRecord: SubscriptionRecord = {
+      id: 'sub-' + Date.now(),
+      clientName,
+      clientPhone,
+      key: cleanKey,
+      durationDays: days,
+      issuedAt: new Date().toISOString(),
+      activatedAt: new Date().toISOString(),
+      expiryDate,
+      status: 'active',
+      notes: `Self-activated in app (${days} days)`,
+    };
+
+    setState(prev => {
+      const existing = prev.subscriptionRecords || [];
+      const matchIdx = existing.findIndex(r => r.key.trim().toUpperCase() === cleanKey);
+      let updatedRecords: SubscriptionRecord[];
+      if (matchIdx >= 0) {
+        updatedRecords = existing.map((r, i) =>
+          i === matchIdx
+            ? {
+                ...r,
+                clientName: clientName || r.clientName,
+                clientPhone: clientPhone || r.clientPhone,
+                activatedAt: new Date().toISOString(),
+                expiryDate,
+                status: 'active',
+              }
+            : r
+        );
+      } else {
+        updatedRecords = [newRecord, ...existing];
+      }
+
+      return {
+        ...prev,
+        subscriptionRecords: updatedRecords,
+        settings: {
+          ...prev.settings,
+          isPremium: true,
+          subscriptionKey: cleanKey,
+          subscriptionExpiryDate: expiryDate,
+          subscriptionActivatedAt: new Date().toISOString(),
+          subscriptionPaymentMethod: 'ecocash_ussd',
+        },
+      };
+    });
+    return { success: true, expiryDate };
+  };
+
+  const handleSaveSubscriptionRecord = (record: SubscriptionRecord) => {
+    setState(prev => {
+      const existing = prev.subscriptionRecords || [];
+      const matchIdx = existing.findIndex(r => r.id === record.id || r.key.trim().toUpperCase() === record.key.trim().toUpperCase());
+      let updated: SubscriptionRecord[];
+      if (matchIdx >= 0) {
+        updated = existing.map((r, i) => (i === matchIdx ? { ...r, ...record } : r));
+      } else {
+        updated = [record, ...existing];
+      }
+      return {
+        ...prev,
+        subscriptionRecords: updated,
+      };
+    });
+  };
+
+  const handleDeleteSubscriptionRecord = (recordId: string) => {
     setState(prev => ({
       ...prev,
-      settings: {
-        ...prev.settings,
-        isPremium: true,
-        subscriptionKey: key,
-        subscriptionExpiryDate: expiryDate,
-        subscriptionActivatedAt: new Date().toISOString(),
-        subscriptionPaymentMethod: 'ecocash_ussd',
-      },
+      subscriptionRecords: (prev.subscriptionRecords || []).filter(r => r.id !== recordId),
     }));
-    return { success: true, expiryDate };
   };
 
   const handleDowngradeSubscription = () => {
@@ -442,6 +512,7 @@ export default function App() {
             <DashboardModule
               state={state}
               onNavigate={tab => setActiveTab(tab)}
+              onOpenPaywall={() => setIsPaywallOpen(true)}
               onQuickAddSale={() => {
                 setActiveTab('sales');
                 setSalesQuickOpen(true);
@@ -573,7 +644,10 @@ export default function App() {
           settings={state.settings}
           businessName={state.business.name}
           businessPhone={state.business.phone}
+          subscriptionRecords={state.subscriptionRecords || []}
           onActivateSubscription={handleActivateSubscription}
+          onSaveSubscriptionRecord={handleSaveSubscriptionRecord}
+          onDeleteSubscriptionRecord={handleDeleteSubscriptionRecord}
           onUpdateAdminPin={handleUpdateAdminPin}
           onDowngrade={handleDowngradeSubscription}
           onOpenLegal={doc => setLegalDocModal(doc)}

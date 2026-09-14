@@ -197,6 +197,53 @@ export function createWhatsAppProofUrl(businessName: string, ownerPhone: string)
 }
 
 /**
+ * Formats WhatsApp message for the merchant to request a renewal key from Comfort Designs
+ */
+export function createRenewalWhatsAppUrl(businessName: string, daysRemaining: number): string {
+  const urgency = daysRemaining <= 1 ? (daysRemaining === 0 ? 'today' : 'in 1 day') : `in ${daysRemaining} days`;
+  const text = `Hello Comfort Designs! 👋\n\nMy SmartBiz Pocket Pro subscription is expiring ${urgency}.\n\n• Business Name: ${businessName || 'My Store'}\n\nI am paying $2.00 via EcoCash (*151*1*1*0772824132*2#). Please generate and send my new 30-Day Pro subscription renewal key.\n\nThank you!`;
+  return `https://wa.me/263772824132?text=${encodeURIComponent(text)}`;
+}
+
+/**
+ * Determines alert level for subscription keys (5-day notice, 2-day urgent alert, expired)
+ */
+export function getSubscriptionAlertLevel(daysRemaining: number, isExpired: boolean): 'active' | 'alert_5_days' | 'alert_2_days' | 'expired' {
+  if (isExpired) return 'expired';
+  if (daysRemaining <= 2) return 'alert_2_days';
+  if (daysRemaining <= 5) return 'alert_5_days';
+  return 'active';
+}
+
+/**
+ * Creates a pre-formatted WhatsApp renewal reminder link from Comfort Designs to the client
+ */
+export function createAdminRenewalReminderWhatsAppUrl(
+  clientPhone: string,
+  clientName: string,
+  daysRemaining: number,
+  expiryDateStr: string
+): string {
+  const cleanPhone = (clientPhone || '').replace(/[^0-9]/g, '');
+  const target = cleanPhone.startsWith('0')
+    ? `263${cleanPhone.slice(1)}`
+    : cleanPhone.startsWith('263')
+    ? cleanPhone
+    : cleanPhone ? `263${cleanPhone}` : '';
+
+  const urgencyText = daysRemaining <= 1
+    ? (daysRemaining <= 0 ? 'today' : 'in 1 day')
+    : `in ${daysRemaining} days`;
+
+  const text = `Hello ${clientName || 'Merchant'}! 👋\n\nFriendly reminder from Comfort Designs: Your SmartBiz Pocket Pro subscription will expire ${urgencyText} on ${expiryDateStr}.\n\nTo ensure continuous uninterrupted access (unlimited sales recording & stock catalog):\n1. Pay $2.00 via EcoCash USSD: *151*1*1*0772824132*2#\n2. Send us the confirmation to receive your fresh 30-Day Pro key.\n\nThank you for choosing SmartBiz Pocket!\n— Comfort Designs (+263772824132)`;
+
+  if (target) {
+    return `https://wa.me/${target}?text=${encodeURIComponent(text)}`;
+  }
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
+/**
  * Formats SMS message for the merchant to send proof of payment
  */
 export function createSmsProofUrl(businessName: string): string {

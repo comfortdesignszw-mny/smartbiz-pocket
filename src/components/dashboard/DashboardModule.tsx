@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -13,13 +13,26 @@ import {
   Clock,
   Sparkles,
   ChevronRight,
+  Crown,
+  Key,
+  MessageSquare,
+  Copy,
+  Check,
+  PhoneCall,
 } from 'lucide-react';
 import { SmartBizState } from '../../types';
 import { TabType } from '../common/Navigation';
+import {
+  getSubscriptionStatus,
+  ECOCASH_USSD_CODE,
+  ECOCASH_USSD_TEL,
+  createRenewalWhatsAppUrl,
+} from '../../utils/licenseKey';
 
 interface DashboardModuleProps {
   state: SmartBizState;
   onNavigate: (tab: TabType) => void;
+  onOpenPaywall?: () => void;
   onQuickAddSale: () => void;
   onQuickAddExpense: () => void;
   onQuickAddProduct: () => void;
@@ -29,6 +42,7 @@ interface DashboardModuleProps {
 export const DashboardModule: React.FC<DashboardModuleProps> = ({
   state,
   onNavigate,
+  onOpenPaywall,
   onQuickAddSale,
   onQuickAddExpense,
   onQuickAddProduct,
@@ -36,6 +50,20 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
 }) => {
   const { products, sales, expenses, debtors, settings } = state;
   const currency = settings.currencySymbol;
+  const [copiedUssd, setCopiedUssd] = useState(false);
+
+  // Pro Subscription Expiry calculation with 5-Day and 2-Day Alerts
+  const subStatus = getSubscriptionStatus(settings);
+  const isAlert2Days = subStatus.isPro && subStatus.daysRemaining <= 2 && !subStatus.isExpired;
+  const isAlert5Days = subStatus.isPro && subStatus.daysRemaining <= 5 && subStatus.daysRemaining > 2 && !subStatus.isExpired;
+  const isExpired = subStatus.isExpired;
+
+  const handleCopyUssd = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(ECOCASH_USSD_CODE);
+    setCopiedUssd(true);
+    setTimeout(() => setCopiedUssd(false), 2000);
+  };
 
   // Calculate Today's figures
   const todayStr = new Date().toDateString();
@@ -81,6 +109,186 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
 
   return (
     <div className="space-y-4 pb-6">
+      {/* ================================================================ */}
+      {/* Pro Subscription Alerts: 2-Day Urgent Alert & 5-Day Notice Banner*/}
+      {/* ================================================================ */}
+      {isAlert2Days && (
+        <div className="bg-gradient-to-br from-rose-600 via-orange-600 to-amber-600 text-white p-4 rounded-2xl shadow-xl border-2 border-rose-300 relative overflow-hidden animate-fadeIn">
+          {/* Subtle background glow */}
+          <div className="absolute -right-6 -bottom-6 w-36 h-36 bg-white/15 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="flex items-start justify-between gap-2.5 relative z-10">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="w-8 h-8 rounded-xl bg-slate-950 text-rose-300 flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-slate-950 text-rose-300 text-[10px] font-black uppercase tracking-wider shadow-xs animate-bounce">
+                {subStatus.daysRemaining === 1
+                  ? '🚨 2-Day Alert: Expires in 1 Day'
+                  : subStatus.daysRemaining <= 0
+                  ? '🚨 2-Day Alert: Expires Today'
+                  : '🚨 2-Day Alert: Expires in 2 Days'}
+              </span>
+            </div>
+
+            <div className="text-right shrink-0">
+              <span className="text-[11px] font-bold text-slate-950 bg-rose-200 px-2 py-0.5 rounded-md border border-rose-300 shadow-2xs">
+                Expires {subStatus.expiryDateStr}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-2.5 relative z-10">
+            <h3 className="text-sm font-black text-white leading-tight flex items-center gap-1.5">
+              <span>Urgent: Pro Subscription Expiring in {subStatus.daysRemaining <= 1 ? 'under 24 hours' : '2 days'}!</span>
+            </h3>
+            <p className="text-xs text-rose-100 mt-1 leading-relaxed font-medium">
+              Your 30-day SmartBiz Pro subscription will expire on{' '}
+              <strong className="underline decoration-white/50 text-white">
+                {subStatus.expiryDateStr}
+              </strong>
+              . Pay $2.00 via EcoCash or contact Comfort Designs for your renewal key immediately to prevent your sales and products from reverting to free-tier restrictions.
+            </p>
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="mt-3 flex items-center flex-wrap gap-2 relative z-10">
+            <button
+              type="button"
+              onClick={() => (onOpenPaywall ? onOpenPaywall() : onNavigate('settings'))}
+              className="px-3.5 py-2 bg-slate-950 hover:bg-slate-900 active:scale-98 text-amber-300 text-xs font-black rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span>Renew & Enter Key ($2.00)</span>
+            </button>
+
+            <a
+              href={createRenewalWhatsAppUrl(state.business.name, subStatus.daysRemaining)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-2 bg-emerald-800 hover:bg-emerald-900 active:scale-98 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Request Key via WhatsApp</span>
+            </a>
+
+            <div className="flex items-center gap-1.5 bg-slate-950/80 border border-white/20 px-2.5 py-1.5 rounded-xl text-amber-300 text-[11px] font-mono font-bold ml-auto sm:ml-0 shadow-2xs">
+              <span>{ECOCASH_USSD_CODE}</span>
+              <button
+                type="button"
+                onClick={handleCopyUssd}
+                className="hover:text-white p-0.5 rounded cursor-pointer"
+                title="Copy EcoCash USSD code"
+              >
+                {copiedUssd ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAlert5Days && (
+        <div className="bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 text-slate-950 p-4 rounded-2xl shadow-lg border-2 border-amber-300 relative overflow-hidden animate-fadeIn">
+          {/* Subtle background decoration */}
+          <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
+          <div className="flex items-start justify-between gap-2.5 relative z-10">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="w-8 h-8 rounded-xl bg-slate-950 text-amber-300 flex items-center justify-center shrink-0 shadow-sm">
+                <Crown className="w-4 h-4 fill-amber-300 text-amber-300" />
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-slate-950 text-amber-300 text-[10px] font-black uppercase tracking-wider shadow-xs">
+                ⚠️ 5-Day Alert: Expires in {subStatus.daysRemaining} Days
+              </span>
+            </div>
+
+            <div className="text-right shrink-0">
+              <span className="text-[11px] font-bold text-slate-900 bg-amber-400/90 px-2 py-0.5 rounded-md border border-amber-300/60 shadow-2xs">
+                Expires {subStatus.expiryDateStr}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-2.5 relative z-10">
+            <h3 className="text-sm font-black text-slate-950 leading-tight">
+              5-Day Advance Notice: Pro Subscription Renewal Due Soon
+            </h3>
+            <p className="text-xs text-slate-900/95 mt-1 leading-relaxed font-medium">
+              Your 30-day SmartBiz Pro subscription will expire in{' '}
+              <strong className="underline decoration-slate-950/40">
+                {subStatus.daysRemaining} days
+              </strong>{' '}
+              ({subStatus.expiryDateStr}). Secure your renewal key ahead of time to ensure continuous unlimited sales recording, unlimited stock catalog, and automatic backups.
+            </p>
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="mt-3 flex items-center flex-wrap gap-2 relative z-10">
+            <button
+              type="button"
+              onClick={() => (onOpenPaywall ? onOpenPaywall() : onNavigate('settings'))}
+              className="px-3.5 py-2 bg-slate-950 hover:bg-slate-900 active:scale-98 text-amber-300 text-xs font-black rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span>Renew & Enter Key ($2.00)</span>
+            </button>
+
+            <a
+              href={createRenewalWhatsAppUrl(state.business.name, subStatus.daysRemaining)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-2 bg-emerald-800 hover:bg-emerald-900 active:scale-98 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Request Key via WhatsApp</span>
+            </a>
+
+            <div className="flex items-center gap-1.5 bg-amber-400/90 border border-amber-300/80 px-2.5 py-1.5 rounded-xl text-slate-950 text-[11px] font-mono font-bold ml-auto sm:ml-0 shadow-2xs">
+              <span>{ECOCASH_USSD_CODE}</span>
+              <button
+                type="button"
+                onClick={handleCopyUssd}
+                className="hover:text-slate-800 p-0.5 rounded cursor-pointer"
+                title="Copy EcoCash USSD code"
+              >
+                {copiedUssd ? <Check className="w-3 h-3 text-emerald-900" /> : <Copy className="w-3 h-3" />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* When Expired */}
+      {isExpired && (
+        <div className="bg-gradient-to-br from-rose-600 via-rose-700 to-rose-800 text-white p-4 rounded-2xl shadow-lg border-2 border-rose-400 relative overflow-hidden animate-fadeIn">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-slate-950 text-rose-300 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+              </span>
+              <div>
+                <span className="px-2 py-0.5 rounded-full bg-slate-950 text-rose-300 text-[10px] font-black uppercase tracking-wider">
+                  Pro Plan Expired
+                </span>
+                <h3 className="text-sm font-bold text-white mt-0.5">
+                  Subscription Expired on {subStatus.expiryDateStr}
+                </h3>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => (onOpenPaywall ? onOpenPaywall() : onNavigate('settings'))}
+              className="px-3 py-1.5 bg-white text-rose-950 text-xs font-black rounded-lg shadow-sm hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+            >
+              Reactivate ($2.00)
+            </button>
+          </div>
+          <p className="text-xs text-rose-100 mt-2">
+            Your 30-day Pro plan has expired. Sales limit is currently capped at 100/mo. Generate or enter your new 30-day key to restore full unlimited Pro access.
+          </p>
+        </div>
+      )}
+
       {/* First-Time / Empty State Onboarding Card */}
       {products.length === 0 && sales.length === 0 && (
         <div className="bg-gradient-to-br from-emerald-900 to-slate-900 text-white p-4 rounded-xl shadow-sm border border-emerald-800/40">

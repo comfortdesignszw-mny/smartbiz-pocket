@@ -176,6 +176,19 @@ export interface AppSettings {
   lastBackupDate?: string;
 }
 
+export interface SubscriptionRecord {
+  id: string;
+  clientName: string;
+  clientPhone?: string;
+  key: string;
+  durationDays: number;
+  issuedAt: string; // ISO date string
+  activatedAt?: string; // ISO date string
+  expiryDate: string; // ISO date string
+  status: 'active' | 'alert_5_days' | 'alert_2_days' | 'expired';
+  notes?: string;
+}
+
 export interface SmartBizState {
   business: Business;
   products: Product[];
@@ -187,4 +200,5 @@ export interface SmartBizState {
   payments: PaymentRecord[];
   backups: BackupMetadata[];
   settings: AppSettings;
+  subscriptionRecords?: SubscriptionRecord[];
 }

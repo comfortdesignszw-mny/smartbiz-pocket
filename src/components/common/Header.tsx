@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Smartphone, Monitor, Crown, MapPin, Clock, Calendar } from 'lucide-react';
+import { Lock, Smartphone, Monitor, Crown, MapPin, Clock, Calendar, AlertTriangle } from 'lucide-react';
 import { Business, AppSettings } from '../../types';
+import { getSubscriptionStatus } from '../../utils/licenseKey';
 
 interface HeaderProps {
   business: Business;
@@ -46,6 +47,9 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   const userLocation = business.location?.trim() || 'Harare CBD';
+  const subStatus = getSubscriptionStatus(settings);
+  const isAlert2d = subStatus.isPro && subStatus.daysRemaining <= 2 && !subStatus.isExpired;
+  const isAlert5d = subStatus.isPro && subStatus.daysRemaining <= 5 && subStatus.daysRemaining > 2 && !subStatus.isExpired;
 
   return (
     <header className="bg-emerald-800 text-white px-3 py-2 shadow-md flex items-center justify-between select-none z-30 flex-wrap gap-2">
@@ -104,18 +108,45 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Controls */}
         <div className="flex items-center gap-1 shrink-0">
-          {/* RevenueCat Premium Toggle */}
+          {/* RevenueCat Premium Toggle with 5-Day and 2-Day Expiry Alerts */}
           <button
             onClick={onTogglePremium}
-            title={settings.isPremium ? 'Premium Active (Unlimited)' : 'Free Tier (Tap to test Premium)'}
+            title={
+              isAlert2d
+                ? `🚨 CRITICAL: Pro Expires in ${subStatus.daysRemaining} days (${subStatus.expiryDateStr})`
+                : isAlert5d
+                ? `⚠️ NOTICE: Pro Expires in ${subStatus.daysRemaining} days (${subStatus.expiryDateStr})`
+                : settings.isPremium
+                ? `Premium Active (${subStatus.daysRemaining}d left)`
+                : 'Free Tier (Tap to activate Pro)'
+            }
             className={`px-2 py-1 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors ${
-              settings.isPremium
+              isAlert2d
+                ? 'bg-rose-500 text-white font-black shadow-md animate-pulse border border-rose-300'
+                : isAlert5d
+                ? 'bg-amber-400 text-slate-950 font-bold shadow-sm border border-amber-300'
+                : settings.isPremium
                 ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
                 : 'bg-emerald-700/60 hover:bg-emerald-700 text-emerald-100 border border-emerald-600/60'
             }`}
           >
-            <Crown className={`w-3.5 h-3.5 ${settings.isPremium ? 'fill-current' : ''}`} />
-            <span className="hidden sm:inline">{settings.isPremium ? 'PRO' : 'Free'}</span>
+            {isAlert2d ? (
+              <AlertTriangle className="w-3.5 h-3.5 text-white animate-bounce" />
+            ) : (
+              <Crown className={`w-3.5 h-3.5 ${settings.isPremium ? 'fill-current' : ''}`} />
+            )}
+            <span className="hidden sm:inline">
+              {isAlert2d
+                ? `PRO (${subStatus.daysRemaining}d left)`
+                : isAlert5d
+                ? `PRO (${subStatus.daysRemaining}d)`
+                : settings.isPremium
+                ? 'PRO'
+                : 'Free'}
+            </span>
+            <span className="sm:hidden">
+              {isAlert2d ? `${subStatus.daysRemaining}d!` : isAlert5d ? `${subStatus.daysRemaining}d` : settings.isPremium ? 'PRO' : 'Free'}
+            </span>
           </button>
 
           {/* Phone Frame Toggle */}

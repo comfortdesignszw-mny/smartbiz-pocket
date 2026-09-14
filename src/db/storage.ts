@@ -51,6 +51,7 @@ export const INITIAL_STATE: SmartBizState = {
     autoBackupInterval: 'daily',
     lastBackupDate: new Date().toISOString(),
   },
+  subscriptionRecords: [],
 };
 
 export function loadSmartBizState(): SmartBizState {
@@ -106,6 +107,42 @@ export function generateHealthInsights(state: SmartBizState): BusinessHealthInsi
   const insights: BusinessHealthInsight[] = [];
   const now = new Date();
   const todayStr = now.toDateString();
+
+  // Subscription Expiry Alerts (5 Days and 2 Days)
+  if (state.settings.isPremium && state.settings.subscriptionExpiryDate) {
+    const msRemaining = new Date(state.settings.subscriptionExpiryDate).getTime() - Date.now();
+    const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+    if (msRemaining <= 0) {
+      insights.push({
+        id: 'ins-sub-expired',
+        type: 'alert',
+        title: 'Pro Subscription Expired',
+        message: 'Your 30-day Pro plan has expired. Reactivate for $2.00 via EcoCash to restore unlimited sales.',
+        actionLabel: 'Reactivate Pro',
+        actionTab: 'settings',
+      });
+    } else if (daysRemaining <= 2) {
+      insights.push({
+        id: 'ins-sub-2d-alert',
+        type: 'alert',
+        title: `🚨 Urgent: Pro Expires in ${daysRemaining === 1 ? '1 Day' : '2 Days'}!`,
+        message: `Your 30-day SmartBiz Pro subscription will expire in ${daysRemaining} days. Dial *151*1*1*0772824132*2# ($2.00) to renew uninterrupted.`,
+        metric: `${daysRemaining}d left`,
+        actionLabel: 'Renew Subscription',
+        actionTab: 'settings',
+      });
+    } else if (daysRemaining <= 5) {
+      insights.push({
+        id: 'ins-sub-5d-alert',
+        type: 'warning',
+        title: `⚠️ Pro Renewal Notice: ${daysRemaining} Days Left`,
+        message: `Your 30-day SmartBiz Pro plan expires in ${daysRemaining} days. Get your renewal key from Comfort Designs in advance.`,
+        metric: `${daysRemaining}d left`,
+        actionLabel: 'Renew Subscription',
+        actionTab: 'settings',
+      });
+    }
+  }
 
   // 0. Catalog Onboarding check
   if (state.products.length === 0) {
