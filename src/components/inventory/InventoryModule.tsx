@@ -4,6 +4,7 @@ import {
   Search,
   Package,
   AlertTriangle,
+  AlertCircle,
   Edit2,
   Trash2,
   History,
@@ -20,7 +21,7 @@ import {
   Loader2,
   Sparkles,
 } from 'lucide-react';
-import { SmartBizState, Product, InventoryMovement, InventoryItemType } from '../../types';
+import { SmartBizState, Product, InventoryMovement, InventoryItemType, FREE_PLAN_INVENTORY_LIMIT } from '../../types';
 import { compressImageFile, formatBytes } from '../../utils/imageCompression';
 
 interface InventoryModuleProps {
@@ -32,6 +33,7 @@ interface InventoryModuleProps {
   isQuickAddOpen: boolean;
   onCloseQuickAdd: () => void;
   onOpenQuickAdd: () => void;
+  onOpenPaywall?: (reason?: 'sales_limit' | 'inventory_limit' | 'expiry' | 'general') => void;
 }
 
 const SERVICE_PERIOD_PRESETS = [
@@ -55,9 +57,25 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   isQuickAddOpen,
   onCloseQuickAdd,
   onOpenQuickAdd,
+  onOpenPaywall,
 }) => {
-  const { products, movements, settings } = state;
-  const currency = settings.currencySymbol;
+  const products = state.products || [];
+  const movements = state.movements || [];
+  const settings = state.settings || { currencySymbol: '$' };
+  const currency = settings.currencySymbol || '$';
+
+  const isFreePlan = !settings.isPremium;
+  const isInventoryLimitReached = isFreePlan && products.length >= FREE_PLAN_INVENTORY_LIMIT;
+  const freeItemsRemaining = Math.max(0, FREE_PLAN_INVENTORY_LIMIT - products.length);
+
+  const handleAddClick = () => {
+    if (isInventoryLimitReached) {
+      if (onOpenPaywall) onOpenPaywall('inventory_limit');
+      return;
+    }
+    resetForm();
+    onOpenQuickAdd();
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<'All' | 'Product' | 'Service'>('All');
@@ -204,6 +222,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   // Submit new product or service
   const handleCreateProduct = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isInventoryLimitReached) {
+      if (onOpenPaywall) onOpenPaywall('inventory_limit');
+      return;
+    }
+
     const cost = parseFloat(costPrice) || 0;
     const sell = parseFloat(sellingPrice) || 0;
 
@@ -294,10 +318,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             <span className="hidden sm:inline">Stock Logs</span>
           </button>
           <button
-            onClick={() => {
-              resetForm();
-              onOpenQuickAdd();
-            }}
+            onClick={handleAddClick}
             className="px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -305,6 +326,51 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Free Plan Inventory Limit Notice / Quota Pill */}
+      {isFreePlan && (
+        <div
+          className={`p-3 rounded-xl border transition-all ${
+            isInventoryLimitReached
+              ? 'bg-amber-500/10 border-amber-300 text-amber-950 shadow-xs'
+              : 'bg-slate-50 border-slate-200 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-2 min-w-0">
+              {isInventoryLimitReached ? (
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
+              ) : (
+                <Package className="w-4 h-4 text-emerald-600 shrink-0" />
+              )}
+              <div className="text-xs">
+                <span className="font-bold mr-1">
+                  {isInventoryLimitReached
+                    ? 'Free Plan 25 Products Limit Reached!'
+                    : `Free Plan: ${products.length} / ${FREE_PLAN_INVENTORY_LIMIT} Product Types Used`}
+                </span>
+                <span className="text-[11px] opacity-85 block sm:inline">
+                  {isInventoryLimitReached
+                    ? 'You have reached the 25 product types limit on the Free Plan. Upgrade to Pro for $2 to add unlimited stock items and services.'
+                    : `(${freeItemsRemaining} product type${freeItemsRemaining === 1 ? '' : 's'} remaining before Pro upgrade)`}
+                </span>
+              </div>
+            </div>
+            {onOpenPaywall && (
+              <button
+                onClick={() => onOpenPaywall('inventory_limit')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-2xs shrink-0 cursor-pointer transition-transform active:scale-95 ${
+                  isInventoryLimitReached
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-white border border-slate-300 hover:bg-slate-100 text-slate-800'
+                }`}
+              >
+                {isInventoryLimitReached ? 'Upgrade Pro ($2)' : 'Upgrade to Pro'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Valuation & Inventory Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">

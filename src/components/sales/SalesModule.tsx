@@ -21,7 +21,7 @@ import {
   Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { SmartBizState, Product, Sale, SaleItem, PaymentMethod } from '../../types';
+import { SmartBizState, Product, Sale, SaleItem, PaymentMethod, FREE_PLAN_SALES_LIMIT } from '../../types';
 
 interface SalesModuleProps {
   state: SmartBizState;
@@ -31,6 +31,7 @@ interface SalesModuleProps {
   onCloseQuickAdd: () => void;
   onOpenQuickAdd: () => void;
   onOpenAddProduct?: () => void;
+  onOpenPaywall?: (reason?: 'sales_limit' | 'inventory_limit' | 'expiry' | 'general') => void;
 }
 
 export const SalesModule: React.FC<SalesModuleProps> = ({
@@ -41,9 +42,26 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
   onCloseQuickAdd,
   onOpenQuickAdd,
   onOpenAddProduct,
+  onOpenPaywall,
 }) => {
-  const { products, sales, customers, settings, business } = state;
-  const currency = settings.currencySymbol;
+  const products = state.products || [];
+  const sales = state.sales || [];
+  const customers = state.customers || [];
+  const settings = state.settings || { currencySymbol: '$' };
+  const business = state.business || { name: 'SmartBiz Merchant' };
+  const currency = settings.currencySymbol || '$';
+
+  const isFreePlan = !settings.isPremium;
+  const isSalesLimitReached = isFreePlan && sales.length >= FREE_PLAN_SALES_LIMIT;
+  const freeSalesRemaining = Math.max(0, FREE_PLAN_SALES_LIMIT - sales.length);
+
+  const handleRecordClick = () => {
+    if (isSalesLimitReached) {
+      if (onOpenPaywall) onOpenPaywall('sales_limit');
+      return;
+    }
+    onOpenQuickAdd();
+  };
 
   // Search and filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -223,6 +241,11 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
 
   // Finalize Multi-Item Sale
   const handleCompleteSale = () => {
+    if (isSalesLimitReached) {
+      if (onOpenPaywall) onOpenPaywall('sales_limit');
+      return;
+    }
+
     let finalItems = [...cartItems];
 
     // If user has not explicitly pressed "+ Add Item" but has an item in picker, include it
@@ -364,7 +387,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
             <span className="hidden sm:inline">CSV</span>
           </button>
           <button
-            onClick={onOpenQuickAdd}
+            onClick={handleRecordClick}
             className="px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" />
@@ -372,6 +395,51 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Free Plan Sales Limit Notice / Quota Pill */}
+      {isFreePlan && (
+        <div
+          className={`p-3 rounded-xl border transition-all ${
+            isSalesLimitReached
+              ? 'bg-amber-500/10 border-amber-300 text-amber-950 shadow-xs'
+              : 'bg-slate-50 border-slate-200 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-2 min-w-0">
+              {isSalesLimitReached ? (
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
+              ) : (
+                <ShoppingBag className="w-4 h-4 text-emerald-600 shrink-0" />
+              )}
+              <div className="text-xs">
+                <span className="font-bold mr-1">
+                  {isSalesLimitReached
+                    ? 'Free Plan 50 Sales Limit Reached!'
+                    : `Free Plan: ${sales.length} / ${FREE_PLAN_SALES_LIMIT} Sales Used`}
+                </span>
+                <span className="text-[11px] opacity-85 block sm:inline">
+                  {isSalesLimitReached
+                    ? 'You have reached 50 free transactions. Upgrade to Pro for $2 to continue selling without interruptions.'
+                    : `(${freeSalesRemaining} free transaction${freeSalesRemaining === 1 ? '' : 's'} remaining before Pro upgrade)`}
+                </span>
+              </div>
+            </div>
+            {onOpenPaywall && (
+              <button
+                onClick={() => onOpenPaywall('sales_limit')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-2xs shrink-0 cursor-pointer transition-transform active:scale-95 ${
+                  isSalesLimitReached
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-white border border-slate-300 hover:bg-slate-100 text-slate-800'
+                }`}
+              >
+                {isSalesLimitReached ? 'Upgrade Pro ($2)' : 'Upgrade to Pro'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Search & Payment Filter Bar */}
       <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs space-y-2">

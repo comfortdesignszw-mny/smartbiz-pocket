@@ -31,8 +31,12 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
   onRecordPayment,
   onDeleteDebtor,
 }) => {
-  const { debtors, payments, settings, business, customers } = state;
-  const currency = settings.currencySymbol;
+  const debtors = state.debtors || [];
+  const payments = state.payments || [];
+  const customers = state.customers || [];
+  const settings = state.settings || { currencySymbol: '$' };
+  const business = state.business || { name: 'SmartBiz Merchant' };
+  const currency = settings.currencySymbol || '$';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Active' | 'Cleared'>('Active');

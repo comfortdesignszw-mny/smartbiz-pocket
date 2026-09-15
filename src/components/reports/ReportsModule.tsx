@@ -22,8 +22,13 @@ interface ReportsModuleProps {
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export const ReportsModule: React.FC<ReportsModuleProps> = ({ state, onNavigate }) => {
-  const { sales, expenses, products, debtors, settings, business } = state;
-  const currency = settings.currencySymbol;
+  const sales = state.sales || [];
+  const expenses = state.expenses || [];
+  const products = state.products || [];
+  const debtors = state.debtors || [];
+  const settings = state.settings || { currencySymbol: '$' };
+  const business = state.business || { name: 'SmartBiz Merchant' };
+  const currency = settings.currencySymbol || '$';
 
   const [period, setPeriod] = useState<PeriodType>('weekly');
 

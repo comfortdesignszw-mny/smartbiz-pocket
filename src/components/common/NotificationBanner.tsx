@@ -15,25 +15,43 @@ import { downloadJsonBackup, downloadMonthlyReportCsv } from '../../utils/notifi
 import { TabType } from './Navigation';
 
 interface NotificationBannerProps {
-  notifications: AppNotification[];
-  state: SmartBizState;
-  onOpenPaywall: (reason?: 'sales_limit' | 'inventory_limit' | 'expiry' | 'general') => void;
-  onOpenNotificationCenter: () => void;
-  onNavigate: (tab: TabType) => void;
+  notifications?: AppNotification[];
+  notification?: AppNotification | null;
+  state?: SmartBizState;
+  onOpenPaywall?: (reason?: 'sales_limit' | 'inventory_limit' | 'expiry' | 'general') => void;
+  onOpenNotificationCenter?: () => void;
+  onNavigate?: (tab: TabType) => void;
   onQuickAddSale?: () => void;
+  onDismiss?: (id: string) => void;
+  onAction?: (notification: AppNotification) => void;
+  onViewAll?: () => void;
 }
 
 export const NotificationBanner: React.FC<NotificationBannerProps> = ({
   notifications,
+  notification,
   state,
   onOpenPaywall,
   onOpenNotificationCenter,
   onNavigate,
   onQuickAddSale,
+  onDismiss,
+  onAction,
+  onViewAll,
 }) => {
-  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [localDismissedIds, setLocalDismissedIds] = useState<string[]>([]);
 
-  const activeNotifs = notifications.filter(n => !dismissedIds.includes(n.id));
+  // Collect source notifications safely
+  const rawList: AppNotification[] =
+    notifications && Array.isArray(notifications)
+      ? notifications
+      : notification
+      ? [notification]
+      : [];
+
+  const activeNotifs = (rawList || []).filter(
+    n => Boolean(n && n.id) && !localDismissedIds.includes(n.id)
+  );
   if (activeNotifs.length === 0) return null;
 
   // Pick highest priority active notification
@@ -42,8 +60,18 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
     activeNotifs.find(n => n.priority === 'high') ||
     activeNotifs[0];
 
+  if (!current) return null;
+
   const handleDismiss = (id: string) => {
-    setDismissedIds(prev => [...prev, id]);
+    setLocalDismissedIds(prev => [...prev, id]);
+    if (onDismiss) {
+      onDismiss(id);
+    }
+  };
+
+  const handleOpenCenter = () => {
+    if (onOpenNotificationCenter) onOpenNotificationCenter();
+    else if (onViewAll) onViewAll();
   };
 
   const getStyleForType = () => {
@@ -92,7 +120,10 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
           {/* Direct Action Buttons */}
           {current.type === 'subscription_countdown' && (
             <button
-              onClick={() => onOpenPaywall('expiry')}
+              onClick={() => {
+                if (onAction) onAction(current);
+                else if (onOpenPaywall) onOpenPaywall('expiry');
+              }}
               className="px-2.5 py-1 rounded-md bg-white text-rose-700 hover:bg-rose-50 text-[11px] font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
             >
               <Zap className="w-3 h-3 text-rose-600 fill-current" />
@@ -103,8 +134,9 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
           {current.type === 'end_of_day_sales' && (
             <button
               onClick={() => {
-                if (onQuickAddSale) onQuickAddSale();
-                else onNavigate('sales');
+                if (onAction) onAction(current);
+                else if (onQuickAddSale) onQuickAddSale();
+                else if (onNavigate) onNavigate('sales');
               }}
               className="px-2.5 py-1 rounded-md bg-white text-amber-900 hover:bg-amber-50 text-[11px] font-bold shadow-xs flex items-center gap-1 cursor-pointer"
             >
@@ -115,7 +147,10 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
 
           {current.type === 'monthly_reports' && (
             <button
-              onClick={() => downloadMonthlyReportCsv(state)}
+              onClick={() => {
+                if (onAction) onAction(current);
+                else if (state) downloadMonthlyReportCsv(state);
+              }}
               className="px-2.5 py-1 rounded-md bg-white text-indigo-900 hover:bg-indigo-50 text-[11px] font-bold shadow-xs flex items-center gap-1 cursor-pointer"
             >
               <Download className="w-3 h-3" />
@@ -125,7 +160,10 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
 
           {current.type === 'end_of_month_backup' && (
             <button
-              onClick={() => downloadJsonBackup(state)}
+              onClick={() => {
+                if (onAction) onAction(current);
+                else if (state) downloadJsonBackup(state);
+              }}
               className="px-2.5 py-1 rounded-md bg-white text-emerald-900 hover:bg-emerald-50 text-[11px] font-bold shadow-xs flex items-center gap-1 cursor-pointer"
             >
               <Download className="w-3 h-3" />
@@ -134,7 +172,7 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
           )}
 
           <button
-            onClick={onOpenNotificationCenter}
+            onClick={handleOpenCenter}
             className="px-2 py-1 rounded-md bg-black/20 hover:bg-black/30 text-[11px] text-white/90 transition-colors cursor-pointer"
             title="View all notifications"
           >

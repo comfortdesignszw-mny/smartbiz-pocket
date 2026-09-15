@@ -42,6 +42,7 @@ import {
   createCustomerKeyWhatsAppUrl,
   createAdminRenewalReminderWhatsAppUrl,
 } from '../../utils/licenseKey';
+import { sendPushNotification } from '../../utils/notifications';
 
 interface RevenueCatPaywallModalProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ interface RevenueCatPaywallModalProps {
   settings: AppSettings;
   businessName?: string;
   businessPhone?: string;
+  triggerReason?: 'sales_limit' | 'inventory_limit' | 'expiry' | 'general';
   subscriptionRecords?: SubscriptionRecord[];
   onActivateSubscription: (
     key: string,
@@ -69,6 +71,7 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
   settings,
   businessName = '',
   businessPhone = '',
+  triggerReason = 'general',
   subscriptionRecords = [],
   onActivateSubscription,
   onSaveSubscriptionRecord,
@@ -243,6 +246,13 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
         day: 'numeric',
       });
       setSuccessMessage(`Pro Plan Successfully Activated! Enjoy 30 days of full access until ${expiryFormatted}.`);
+      
+      // Congratulatory push notification for renewed subscription
+      sendPushNotification(
+        '🎉 Pro Subscription Renewed!',
+        `Congratulations on renewing your SmartBiz Pocket Pro subscription! Unlimited sales, 25+ product inventory, and automated backups are now active until ${expiryFormatted}.`
+      );
+
       setEnteredKey('');
       setTimeout(() => {
         setSuccessMessage(null);
@@ -414,7 +424,7 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
               ) : subStatus.isExpired ? (
                 <span className="text-rose-400">Subscription Expired ({subStatus.expiryDateStr})</span>
               ) : (
-                <span className="text-slate-300">Free Tier (100 monthly sales limit)</span>
+                <span className="text-slate-300">Free Plan (50 sales limit • 25 inventory types)</span>
               )}
             </span>
           </div>
@@ -425,6 +435,43 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
             </span>
           )}
         </div>
+
+        {/* Trigger Reason Banner for 50 Sales, 25 Products, or Expiry */}
+        {triggerReason === 'sales_limit' && (
+          <div className="bg-amber-500/15 border-b border-amber-300/40 px-4 py-2.5 text-amber-950 text-xs flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-900">50 Free Sales Transactions Reached</p>
+              <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                You have reached the 50 sales limit for the Free Plan. Upgrade to Pro for $2 to continue recording customer sales without interruption and unlock full business analytics.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {triggerReason === 'inventory_limit' && (
+          <div className="bg-amber-500/15 border-b border-amber-300/40 px-4 py-2.5 text-amber-950 text-xs flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-900">25 Free Inventory / Product Types Reached</p>
+              <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                Free Plan stores are limited to 25 catalog items. Subscribe to Pro for $2 to add unlimited inventory, goods, services, and photo attachments.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {triggerReason === 'expiry' && (
+          <div className="bg-rose-500/15 border-b border-rose-300/40 px-4 py-2.5 text-rose-950 text-xs flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-rose-900">Subscription Renewal Required</p>
+              <p className="text-[11px] text-rose-800 mt-0.5 leading-relaxed">
+                Your subscription is expiring or has expired. Renew your monthly Pro subscription for $2 to keep unlimited selling, inventory, and automatic backups active.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Scrollable Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-slate-800">

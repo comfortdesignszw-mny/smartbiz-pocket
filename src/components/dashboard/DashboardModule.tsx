@@ -49,8 +49,12 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
   onQuickAddProduct,
   onQuickAddCustomer,
 }) => {
-  const { products, sales, expenses, debtors, settings } = state;
-  const currency = settings.currencySymbol;
+  const products = state.products || [];
+  const sales = state.sales || [];
+  const expenses = state.expenses || [];
+  const debtors = state.debtors || [];
+  const settings = state.settings || { currencySymbol: '$' };
+  const currency = settings.currencySymbol || '$';
   const [copiedUssd, setCopiedUssd] = useState(false);
   const [welcomeDismissed, setWelcomeDismissed] = useState(() => {
     return sessionStorage.getItem('smartbiz_welcome_dismissed') === 'true';

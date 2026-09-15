@@ -90,24 +90,28 @@ export function downloadJsonBackup(state: SmartBizState): { filename: string; si
  * Generates and downloads a Monthly Stores Report CSV file
  */
 export function downloadMonthlyReportCsv(state: SmartBizState): string {
-  const { sales, expenses, products, debtors, settings, business } = state;
-  const currency = settings.currencySymbol;
+  const sales = state.sales || [];
+  const expenses = state.expenses || [];
+  const products = state.products || [];
+  const debtors = state.debtors || [];
+  const business = state.business || { name: 'SmartBiz Merchant' };
+  const currency = state.settings?.currencySymbol || '$';
 
   const oneMonthAgo = new Date();
   oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
 
-  const filteredSales = sales.filter(s => new Date(s.date) >= oneMonthAgo);
-  const filteredExpenses = expenses.filter(e => new Date(e.date) >= oneMonthAgo);
+  const filteredSales = sales.filter(s => s && s.date && new Date(s.date) >= oneMonthAgo);
+  const filteredExpenses = expenses.filter(e => e && e.date && new Date(e.date) >= oneMonthAgo);
 
-  const totalRevenue = filteredSales.reduce((acc, s) => acc + s.totalSale, 0);
-  const totalCost = filteredSales.reduce((acc, s) => acc + s.totalCost, 0);
+  const totalRevenue = filteredSales.reduce((acc, s) => acc + (s.totalSale || 0), 0);
+  const totalCost = filteredSales.reduce((acc, s) => acc + (s.totalCost || 0), 0);
   const grossProfit = totalRevenue - totalCost;
-  const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+  const totalExpenses = filteredExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
   const netProfit = grossProfit - totalExpenses;
   const profitMargin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
 
-  const totalStockRetail = products.reduce((sum, p) => sum + p.sellingPrice * p.quantity, 0);
-  const totalDebtors = debtors.filter(d => d.balanceOwed > 0).reduce((sum, d) => sum + d.balanceOwed, 0);
+  const totalStockRetail = products.reduce((sum, p) => sum + (p.sellingPrice || 0) * (p.quantity || 0), 0);
+  const totalDebtors = debtors.filter(d => d && (d.balanceOwed || 0) > 0).reduce((sum, d) => sum + (d.balanceOwed || 0), 0);
 
   const lines = [
     `"SmartBiz Pocket - Official Monthly Stores Performance Report"`,
@@ -167,8 +171,10 @@ export function evaluateSystemNotifications(
   const isEndOfDayTime = currentHour >= 16 || options?.forceSimulate === 'end_of_day';
   if (isEndOfDayTime) {
     const todayStr = now.toISOString().slice(0, 10);
-    const todaySales = state.sales.filter(s => s.date.startsWith(todayStr));
-    const todayTotal = todaySales.reduce((sum, s) => sum + s.totalSale, 0);
+    const salesList = state.sales || [];
+    const todaySales = salesList.filter(s => s && s.date && s.date.startsWith(todayStr));
+    const todayTotal = todaySales.reduce((sum, s) => sum + (s.totalSale || 0), 0);
+    const currencySym = state.settings?.currencySymbol || '$';
 
     notifications.push({
       id: `eod-sales-${todayStr}`,
@@ -176,7 +182,7 @@ export function evaluateSystemNotifications(
       title: 'End of Day Sales Records',
       message:
         todaySales.length > 0
-          ? `You have recorded ${todaySales.length} sale${todaySales.length === 1 ? '' : 's'} (${state.settings.currencySymbol}${todayTotal.toFixed(2)}) today. Check your end of day sales records or enter any pending sales before closing shop.`
+          ? `You have recorded ${todaySales.length} sale${todaySales.length === 1 ? '' : 's'} (${currencySym}${todayTotal.toFixed(2)}) today. Check your end of day sales records or enter any pending sales before closing shop.`
           : 'Check your end of day sales records or enter your sales records for the end of the day before closing trade.',
       createdAt: now.toISOString(),
       priority: 'normal',

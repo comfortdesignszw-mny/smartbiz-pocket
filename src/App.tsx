@@ -2,7 +2,7 @@
  * SmartBiz Pocket – Production-Ready MVP
  * Simple, ultra-fast, offline-first business management for informal traders & SMEs.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   loadSmartBizState,
   saveSmartBizState,
@@ -19,11 +19,22 @@ import {
   BackupMetadata,
   InventoryMovement,
   SubscriptionRecord,
+  AppNotification,
+  AppNotificationType,
+  FREE_PLAN_SALES_LIMIT,
+  FREE_PLAN_INVENTORY_LIMIT,
 } from './types';
 import { Header } from './components/common/Header';
 import { Navigation, TabType } from './components/common/Navigation';
 import { PinLockModal } from './components/common/PinLockModal';
 import { PWAInstallBanner } from './components/common/PWAInstallBanner';
+import { NotificationBanner } from './components/common/NotificationBanner';
+import { NotificationCenterModal } from './components/common/NotificationCenterModal';
+import {
+  evaluateSystemNotifications,
+  downloadJsonBackup,
+  downloadMonthlyReportCsv,
+} from './utils/notifications';
 import { DashboardModule } from './components/dashboard/DashboardModule';
 import { SalesModule } from './components/sales/SalesModule';
 import { ExpensesModule } from './components/expenses/ExpensesModule';
@@ -46,6 +57,12 @@ export default function App() {
   const [isPhoneFrame, setIsPhoneFrame] = useState(true);
   const [legalDocModal, setLegalDocModal] = useState<LegalDocType | null>(null);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<'sales_limit' | 'inventory_limit' | 'expiry' | 'general'>('general');
+
+  // Notifications state
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
+  const [simulatedNotifType, setSimulatedNotifType] = useState<AppNotificationType | undefined>(undefined);
 
   // Quick action modal open states for fast 1-tap from dashboard
   const [salesQuickOpen, setSalesQuickOpen] = useState(false);
@@ -77,6 +94,13 @@ export default function App() {
 
   // 1. Add Sale (Auto stock deduction + Auto credit record)
   const handleAddSale = (newSaleData: Omit<Sale, 'id'>) => {
+    // Paywall enforcement: Free plan limited to 50 sales transactions
+    if (!state.settings.isPremium && state.sales.length >= FREE_PLAN_SALES_LIMIT) {
+      setPaywallReason('sales_limit');
+      setIsPaywallOpen(true);
+      return;
+    }
+
     const saleId = 'sale-' + Date.now();
     const fullSale: Sale = { ...newSaleData, id: saleId };
 
@@ -185,6 +209,13 @@ export default function App() {
 
   // 3. Products & Stock
   const handleAddProduct = (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
+    // Paywall enforcement: Free plan limited to 25 products / inventory types
+    if (!state.settings.isPremium && state.products.length >= FREE_PLAN_INVENTORY_LIMIT) {
+      setPaywallReason('inventory_limit');
+      setIsPaywallOpen(true);
+      return;
+    }
+
     const newProduct: Product = {
       ...productData,
       id: 'prod-' + Date.now(),
@@ -470,8 +501,35 @@ export default function App() {
   };
 
   // Count alerts for badge (only physical products have countable stock)
-  const lowStockCount = state.products.filter(p => p.itemType !== 'service' && p.quantity <= p.minStock).length;
-  const activeDebtorCount = state.debtors.filter(d => d.balanceOwed > 0).length;
+  const lowStockCount = (state.products || []).filter(p => p.itemType !== 'service' && p.quantity <= p.minStock).length;
+  const activeDebtorCount = (state.debtors || []).filter(d => d.balanceOwed > 0).length;
+
+  // Active system notifications calculation
+  const activeNotifications = useMemo(() => {
+    try {
+      const evaluated = evaluateSystemNotifications(state, { forceSimulate: simulatedNotifType });
+      return (evaluated || []).filter(n => !(dismissedNotificationIds || []).includes(n.id));
+    } catch (err) {
+      console.error('Error evaluating system notifications:', err);
+      return [];
+    }
+  }, [state, dismissedNotificationIds, simulatedNotifType]);
+
+  const topNotification = activeNotifications.length > 0 ? activeNotifications[0] : null;
+
+  const handleNotificationAction = (notification: AppNotification) => {
+    if (notification.actionTab === 'settings' || notification.type === 'subscription_countdown') {
+      setPaywallReason('expiry');
+      setIsPaywallOpen(true);
+    } else if (notification.actionTab === 'sales' || notification.type === 'end_of_day_sales') {
+      setActiveTab('sales');
+      setSalesQuickOpen(true);
+    } else if (notification.type === 'monthly_reports' || notification.actionPayload === 'download_monthly_report') {
+      downloadMonthlyReportCsv(state);
+    } else if (notification.type === 'end_of_month_backup' || notification.actionPayload === 'download_json_backup' || notification.actionTab === 'backup') {
+      downloadJsonBackup(state);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-start antialiased font-sans text-slate-800">
@@ -503,8 +561,40 @@ export default function App() {
           isPhoneFrame={isPhoneFrame}
           onTogglePhoneFrame={() => setIsPhoneFrame(!isPhoneFrame)}
           onOpenSettings={() => setActiveTab('settings')}
-          onTogglePremium={() => setIsPaywallOpen(true)}
+          onTogglePremium={() => {
+            setPaywallReason('general');
+            setIsPaywallOpen(true);
+          }}
+          notificationCount={activeNotifications.length}
+          onOpenNotifications={() => setIsNotificationCenterOpen(true)}
         />
+
+        {/* Real-time System Notification Banner */}
+        {topNotification && (
+          <NotificationBanner
+            notification={topNotification}
+            notifications={activeNotifications}
+            state={state}
+            onDismiss={id => setDismissedNotificationIds(prev => [...prev, id])}
+            onAction={handleNotificationAction}
+            onOpenPaywall={reason => {
+              setPaywallReason(reason || 'general');
+              setIsPaywallOpen(true);
+            }}
+            onOpenNotificationCenter={() => setIsNotificationCenterOpen(true)}
+            onViewAll={() => setIsNotificationCenterOpen(true)}
+            onNavigate={tab => setActiveTab(tab)}
+            onQuickAddSale={() => {
+              if (!state.settings.isPremium && state.sales.length >= FREE_PLAN_SALES_LIMIT) {
+                setPaywallReason('sales_limit');
+                setIsPaywallOpen(true);
+                return;
+              }
+              setActiveTab('sales');
+              setSalesQuickOpen(true);
+            }}
+          />
+        )}
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-4 bg-slate-100">
@@ -512,8 +602,16 @@ export default function App() {
             <DashboardModule
               state={state}
               onNavigate={tab => setActiveTab(tab)}
-              onOpenPaywall={() => setIsPaywallOpen(true)}
+              onOpenPaywall={() => {
+                setPaywallReason('general');
+                setIsPaywallOpen(true);
+              }}
               onQuickAddSale={() => {
+                if (!state.settings.isPremium && state.sales.length >= FREE_PLAN_SALES_LIMIT) {
+                  setPaywallReason('sales_limit');
+                  setIsPaywallOpen(true);
+                  return;
+                }
                 setActiveTab('sales');
                 setSalesQuickOpen(true);
               }}
@@ -522,6 +620,11 @@ export default function App() {
                 setExpenseQuickOpen(true);
               }}
               onQuickAddProduct={() => {
+                if (!state.settings.isPremium && state.products.length >= FREE_PLAN_INVENTORY_LIMIT) {
+                  setPaywallReason('inventory_limit');
+                  setIsPaywallOpen(true);
+                  return;
+                }
                 setActiveTab('stock');
                 setStockQuickOpen(true);
               }}
@@ -539,10 +642,21 @@ export default function App() {
               onDeleteSale={handleDeleteSale}
               isQuickAddOpen={salesQuickOpen}
               onCloseQuickAdd={() => setSalesQuickOpen(false)}
-              onOpenQuickAdd={() => setSalesQuickOpen(true)}
+              onOpenQuickAdd={() => {
+                if (!state.settings.isPremium && state.sales.length >= FREE_PLAN_SALES_LIMIT) {
+                  setPaywallReason('sales_limit');
+                  setIsPaywallOpen(true);
+                  return;
+                }
+                setSalesQuickOpen(true);
+              }}
               onOpenAddProduct={() => {
                 setActiveTab('stock');
                 setStockQuickOpen(true);
+              }}
+              onOpenPaywall={reason => {
+                setPaywallReason(reason || 'sales_limit');
+                setIsPaywallOpen(true);
               }}
             />
           )}
@@ -567,7 +681,18 @@ export default function App() {
               onRestockProduct={handleRestockProduct}
               isQuickAddOpen={stockQuickOpen}
               onCloseQuickAdd={() => setStockQuickOpen(false)}
-              onOpenQuickAdd={() => setStockQuickOpen(true)}
+              onOpenQuickAdd={() => {
+                if (!state.settings.isPremium && state.products.length >= FREE_PLAN_INVENTORY_LIMIT) {
+                  setPaywallReason('inventory_limit');
+                  setIsPaywallOpen(true);
+                  return;
+                }
+                setStockQuickOpen(true);
+              }}
+              onOpenPaywall={reason => {
+                setPaywallReason(reason || 'inventory_limit');
+                setIsPaywallOpen(true);
+              }}
             />
           )}
 
@@ -644,6 +769,7 @@ export default function App() {
           settings={state.settings}
           businessName={state.business.name}
           businessPhone={state.business.phone}
+          triggerReason={paywallReason}
           subscriptionRecords={state.subscriptionRecords || []}
           onActivateSubscription={handleActivateSubscription}
           onSaveSubscriptionRecord={handleSaveSubscriptionRecord}
@@ -651,6 +777,31 @@ export default function App() {
           onUpdateAdminPin={handleUpdateAdminPin}
           onDowngrade={handleDowngradeSubscription}
           onOpenLegal={doc => setLegalDocModal(doc)}
+        />
+
+        {/* System Notifications Center Modal */}
+        <NotificationCenterModal
+          isOpen={isNotificationCenterOpen}
+          onClose={() => setIsNotificationCenterOpen(false)}
+          notifications={activeNotifications}
+          onNavigate={tab => setActiveTab(tab)}
+          onOpenPaywall={reason => {
+            setPaywallReason(reason || 'general');
+            setIsPaywallOpen(true);
+          }}
+          onQuickAddSale={() => {
+            if (!state.settings.isPremium && state.sales.length >= FREE_PLAN_SALES_LIMIT) {
+              setPaywallReason('sales_limit');
+              setIsPaywallOpen(true);
+              return;
+            }
+            setActiveTab('sales');
+            setSalesQuickOpen(true);
+          }}
+          onDismiss={id => setDismissedNotificationIds(prev => [...prev, id])}
+          onAction={handleNotificationAction}
+          onSimulateNotification={type => setSimulatedNotifType(type)}
+          state={state}
         />
 
         {/* Terms of Use & Privacy Policy Modal */}

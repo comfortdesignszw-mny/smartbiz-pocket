@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Smartphone, Monitor, Crown, MapPin, Clock, Calendar, AlertTriangle } from 'lucide-react';
+import { Lock, Smartphone, Monitor, Crown, MapPin, Clock, Calendar, AlertTriangle, Bell } from 'lucide-react';
 import { Business, AppSettings } from '../../types';
 import { getSubscriptionStatus } from '../../utils/licenseKey';
 
@@ -12,6 +12,8 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenFlutterHub?: () => void;
   onTogglePremium: () => void;
+  notificationCount?: number;
+  onOpenNotifications?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,6 +24,8 @@ export const Header: React.FC<HeaderProps> = ({
   onTogglePhoneFrame,
   onOpenSettings,
   onTogglePremium,
+  notificationCount = 0,
+  onOpenNotifications,
 }) => {
   // Synchronized realtime device clock
   const [deviceTime, setDeviceTime] = useState(new Date());
@@ -108,6 +112,22 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Controls */}
         <div className="flex items-center gap-1 shrink-0">
+          {/* Notification Center Bell */}
+          {onOpenNotifications && (
+            <button
+              onClick={onOpenNotifications}
+              title={`${notificationCount} System Notification${notificationCount === 1 ? '' : 's'}`}
+              className="relative p-1.5 rounded-md hover:bg-emerald-700/80 text-emerald-100 transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-xs animate-pulse">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* RevenueCat Premium Toggle with 5-Day and 2-Day Expiry Alerts */}
           <button
             onClick={onTogglePremium}

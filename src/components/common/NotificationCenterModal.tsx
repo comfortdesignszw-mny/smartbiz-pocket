@@ -27,10 +27,12 @@ interface NotificationCenterModalProps {
   isOpen: boolean;
   onClose: () => void;
   state: SmartBizState;
-  notifications: AppNotification[];
-  onNavigate: (tab: TabType) => void;
-  onOpenPaywall: (reason?: 'sales_limit' | 'inventory_limit' | 'expiry' | 'general') => void;
+  notifications?: AppNotification[];
+  onNavigate?: (tab: TabType) => void;
+  onOpenPaywall?: (reason?: 'sales_limit' | 'inventory_limit' | 'expiry' | 'general') => void;
   onQuickAddSale?: () => void;
+  onDismiss?: (id: string) => void;
+  onAction?: (notification: AppNotification) => void;
   onSimulateNotification?: (type: 'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_1' | 'countdown_0' | null) => void;
 }
 
@@ -38,14 +40,18 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
   isOpen,
   onClose,
   state,
-  notifications,
+  notifications = [],
   onNavigate,
   onOpenPaywall,
   onQuickAddSale,
+  onDismiss,
+  onAction,
   onSimulateNotification,
 }) => {
   const [downloadSuccessMessage, setDownloadSuccessMessage] = useState<string | null>(null);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
+
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
 
   if (!isOpen) return null;
 
@@ -122,7 +128,7 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
             <div>
               <h3 className="text-sm font-bold tracking-tight">System Reminders & Alerts</h3>
               <p className="text-[11px] text-emerald-200">
-                {notifications.length} active notice{notifications.length === 1 ? '' : 's'}
+                {safeNotifications.length} active notice{safeNotifications.length === 1 ? '' : 's'}
               </p>
             </div>
           </div>
@@ -151,14 +157,14 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
 
         {/* Notification List */}
         <div className="p-4 space-y-3 overflow-y-auto flex-1">
-          {notifications.length === 0 ? (
+          {safeNotifications.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
               <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-60" />
               <p className="text-sm font-semibold text-slate-700">All caught up!</p>
               <p className="text-xs text-slate-400 mt-1">No pending notifications or urgent alerts.</p>
             </div>
           ) : (
-            notifications.map(notif => (
+            safeNotifications.map(notif => (
               <div
                 key={notif.id}
                 className={`p-3.5 rounded-xl border transition-all ${
@@ -176,11 +182,22 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
                       <h4 className="text-xs font-bold text-slate-900 truncate">{notif.title}</h4>
-                      {notif.priority === 'critical' && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500 text-white font-bold uppercase tracking-wider">
-                          Urgent
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {notif.priority === 'critical' && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500 text-white font-bold uppercase tracking-wider">
+                            Urgent
+                          </span>
+                        )}
+                        {onDismiss && (
+                          <button
+                            onClick={() => onDismiss(notif.id)}
+                            className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                            title="Dismiss notification"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-slate-600 mt-1 leading-relaxed">{notif.message}</p>
 
@@ -191,7 +208,8 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                         <button
                           onClick={() => {
                             onClose();
-                            onOpenPaywall('expiry');
+                            if (onAction) onAction(notif);
+                            else if (onOpenPaywall) onOpenPaywall('expiry');
                           }}
                           className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                         >
@@ -206,8 +224,9 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                           <button
                             onClick={() => {
                               onClose();
-                              if (onQuickAddSale) onQuickAddSale();
-                              else onNavigate('sales');
+                              if (onAction) onAction(notif);
+                              else if (onQuickAddSale) onQuickAddSale();
+                              else if (onNavigate) onNavigate('sales');
                             }}
                             className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1 cursor-pointer"
                           >
@@ -217,7 +236,7 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                           <button
                             onClick={() => {
                               onClose();
-                              onNavigate('sales');
+                              if (onNavigate) onNavigate('sales');
                             }}
                             className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer"
                           >
@@ -230,7 +249,10 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                       {notif.type === 'monthly_reports' && (
                         <>
                           <button
-                            onClick={handleDownloadReport}
+                            onClick={() => {
+                              if (onAction) onAction(notif);
+                              else handleDownloadReport();
+                            }}
                             className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
                           >
                             <Download className="w-3.5 h-3.5" />
@@ -239,7 +261,7 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                           <button
                             onClick={() => {
                               onClose();
-                              onNavigate('reports');
+                              if (onNavigate) onNavigate('reports');
                             }}
                             className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer"
                           >
@@ -252,7 +274,10 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                       {notif.type === 'end_of_month_backup' && (
                         <>
                           <button
-                            onClick={handleDownloadBackup}
+                            onClick={() => {
+                              if (onAction) onAction(notif);
+                              else handleDownloadBackup();
+                            }}
                             className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
                           >
                             <Download className="w-3.5 h-3.5" />
@@ -261,7 +286,7 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                           <button
                             onClick={() => {
                               onClose();
-                              onNavigate('backup');
+                              if (onNavigate) onNavigate('backup');
                             }}
                             className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer"
                           >

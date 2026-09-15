@@ -43,8 +43,9 @@ export const ExpensesModule: React.FC<ExpensesModuleProps> = ({
   onCloseQuickAdd,
   onOpenQuickAdd,
 }) => {
-  const { expenses, settings } = state;
-  const currency = settings.currencySymbol;
+  const expenses = state.expenses || [];
+  const settings = state.settings || { currencySymbol: '$' };
+  const currency = settings.currencySymbol || '$';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
