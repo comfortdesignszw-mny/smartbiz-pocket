@@ -1,61 +1,85 @@
 import { SmartBizState, AppSettings, AppNotification } from '../types';
 
 /**
- * Computes subscription countdown days left for Free plan / trial or Pro plan.
- * Detects explicitly if 10 days, 2 days, 1 day, or same day (0 days left).
+ * Returns ISO week string for weekly reminder deduplication (e.g. "2026-W38")
+ */
+export function getIsoWeekString(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+/**
+ * Computes subscription countdown days left for ACTIVE PRO subscribers.
+ * ONLY triggers when the active Pro subscriber has 10 days, 2 days, or on the day of expiry (0 days left).
+ * Free plan users do not receive this countdown.
  */
 export function getSubscriptionCountdownStatus(settings: AppSettings): {
+  isPro: boolean;
   daysRemaining: number;
-  isTriggerDay: boolean; // True specifically for 10, 2, 1, or 0 days
-  triggerDay: 10 | 2 | 1 | 0 | null;
+  isTriggerDay: boolean; // True ONLY for 10, 2, or 0 days left for active Pro subscribers
+  triggerDay: 10 | 2 | 0 | null;
   message: string;
   isExpired: boolean;
   expiryDateStr: string;
 } {
-  // Target expiry timestamp: check subscriptionExpiryDate, then freeTrialExpiryDate
-  let targetDateStr = settings.subscriptionExpiryDate || settings.freeTrialExpiryDate;
-
-  if (!targetDateStr) {
-    // If none set, assume 10 days trial from first run
-    const defaultDate = new Date();
-    defaultDate.setDate(defaultDate.getDate() + 10);
-    targetDateStr = defaultDate.toISOString();
+  // Only evaluate active Pro subscribers
+  if (!settings.isPremium || !settings.subscriptionExpiryDate) {
+    return {
+      isPro: false,
+      daysRemaining: 0,
+      isTriggerDay: false,
+      triggerDay: null,
+      message: '',
+      isExpired: false,
+      expiryDateStr: '',
+    };
   }
 
-  const expiryTime = new Date(targetDateStr).getTime();
-  const now = Date.now();
-  const msRemaining = expiryTime - now;
+  const expiryTime = new Date(settings.subscriptionExpiryDate).getTime();
+  const now = new Date();
 
-  const daysRemaining = msRemaining <= 0 ? 0 : Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+  // Compare calendar days at local midnight
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const expiryDate = new Date(expiryTime);
+  const expiryMidnight = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate()).getTime();
+
+  const calendarDaysRemaining = Math.round((expiryMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+  const msRemaining = expiryTime - now.getTime();
   const isExpired = msRemaining <= 0;
 
-  let triggerDay: 10 | 2 | 1 | 0 | null = null;
+  let triggerDay: 10 | 2 | 0 | null = null;
   let isTriggerDay = false;
+  let message = '';
 
-  if (daysRemaining === 10) {
+  if (calendarDaysRemaining === 10) {
     triggerDay = 10;
     isTriggerDay = true;
-  } else if (daysRemaining === 2) {
+    message = 'Your SmartBiz Pro subscription is left with 10 days to expire, renew.';
+  } else if (calendarDaysRemaining === 2) {
     triggerDay = 2;
     isTriggerDay = true;
-  } else if (daysRemaining === 1) {
-    triggerDay = 1;
-    isTriggerDay = true;
-  } else if (daysRemaining <= 0) {
+    message = 'Your SmartBiz Pro subscription is left with 2 days to expire, renew now to avoid service interruption.';
+  } else if (calendarDaysRemaining === 0 || isExpired) {
     triggerDay = 0;
     isTriggerDay = true;
+    message = isExpired
+      ? 'Your SmartBiz Pro subscription has expired, renew now.'
+      : 'Your SmartBiz Pro subscription expires today, renew now.';
   }
 
-  const expiryDateStr = new Date(expiryTime).toLocaleDateString(undefined, {
+  const expiryDateStr = expiryDate.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   });
 
-  const message = `Your subscription is left with ${daysRemaining} days to expire, renew.`;
-
   return {
-    daysRemaining,
+    isPro: true,
+    daysRemaining: Math.max(0, calendarDaysRemaining),
     isTriggerDay,
     triggerDay,
     message,
@@ -156,7 +180,7 @@ export function downloadMonthlyReportCsv(state: SmartBizState): string {
 export function evaluateSystemNotifications(
   state: SmartBizState,
   options?: {
-    forceSimulate?: 'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_1' | 'countdown_0';
+    forceSimulate?: 'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_0';
   }
 ): AppNotification[] {
   const notifications: AppNotification[] = [];
@@ -208,47 +232,64 @@ export function evaluateSystemNotifications(
     });
   }
 
-  // 3. Subscription Expiry Countdown Notifications
-  // Detects if 10 days, 2 days, 1 day, or same day (0 days) left
-  let countdown = getSubscriptionCountdownStatus(state.settings);
+  // 3. Subscription Expiry Renewal Notifications (ONLY for active Pro subscribers with 10 days, 2 days, or 0 days / today left)
+  const isForcedCountdown = Boolean(options?.forceSimulate?.startsWith('countdown_'));
 
-  // If testing/simulating via options
-  if (options?.forceSimulate?.startsWith('countdown_')) {
-    const forcedDay = parseInt(options.forceSimulate.replace('countdown_', ''), 10);
-    countdown = {
-      daysRemaining: forcedDay,
-      isTriggerDay: true,
-      triggerDay: forcedDay as 10 | 2 | 1 | 0,
-      message: `Your subscription is left with ${forcedDay} days to expire, renew.`,
-      isExpired: forcedDay === 0,
-      expiryDateStr: 'Simulated Target',
-    };
-  }
+  if (state.settings.isPremium || isForcedCountdown) {
+    let countdown = getSubscriptionCountdownStatus(state.settings);
 
-  if (countdown.isTriggerDay || !state.settings.isPremium) {
-    const priority =
-      countdown.daysRemaining <= 0
-        ? 'critical'
-        : countdown.daysRemaining <= 2
-        ? 'critical'
-        : countdown.daysRemaining <= 5
-        ? 'high'
-        : 'normal';
+    // If testing/simulating via options
+    if (options?.forceSimulate === 'countdown_10') {
+      countdown = {
+        isPro: true,
+        daysRemaining: 10,
+        isTriggerDay: true,
+        triggerDay: 10,
+        message: 'Your SmartBiz Pro subscription is left with 10 days to expire, renew.',
+        isExpired: false,
+        expiryDateStr: '10 Days from today',
+      };
+    } else if (options?.forceSimulate === 'countdown_2') {
+      countdown = {
+        isPro: true,
+        daysRemaining: 2,
+        isTriggerDay: true,
+        triggerDay: 2,
+        message: 'Your SmartBiz Pro subscription is left with 2 days to expire, renew now to avoid service interruption.',
+        isExpired: false,
+        expiryDateStr: '2 Days from today',
+      };
+    } else if (options?.forceSimulate === 'countdown_0') {
+      countdown = {
+        isPro: true,
+        daysRemaining: 0,
+        isTriggerDay: true,
+        triggerDay: 0,
+        message: 'Your SmartBiz Pro subscription expires today, renew now.',
+        isExpired: false,
+        expiryDateStr: 'Expires Today',
+      };
+    }
 
-    notifications.push({
-      id: `sub-countdown-${countdown.daysRemaining}d`,
-      type: 'subscription_countdown',
-      title:
-        countdown.daysRemaining <= 0
-          ? 'Subscription Expired'
-          : `Subscription Notice: ${countdown.daysRemaining} Day${countdown.daysRemaining === 1 ? '' : 's'} Left`,
-      message: countdown.message,
-      createdAt: now.toISOString(),
-      priority,
-      actionLabel: 'Renew Pro ($2)',
-      actionTab: 'settings',
-      actionPayload: String(countdown.daysRemaining),
-    });
+    // Only fire notification if specifically on 10, 2, or 0 days left
+    if (countdown.isTriggerDay) {
+      const priority = countdown.daysRemaining <= 2 ? 'critical' : 'normal';
+
+      notifications.push({
+        id: `pro-sub-renewal-${countdown.daysRemaining}d-${now.toISOString().slice(0, 10)}`,
+        type: 'subscription_countdown',
+        title:
+          countdown.daysRemaining === 0
+            ? 'Pro Subscription: Expires Today!'
+            : `Pro Subscription Notice: ${countdown.daysRemaining} Days Left`,
+        message: countdown.message,
+        createdAt: now.toISOString(),
+        priority,
+        actionLabel: 'Renew Pro ($2)',
+        actionTab: 'settings',
+        actionPayload: String(countdown.daysRemaining),
+      });
+    }
   }
 
   // 4. End of Month Backup Reminder Notification

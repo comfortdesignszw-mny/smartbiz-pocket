@@ -33,7 +33,7 @@ interface NotificationCenterModalProps {
   onQuickAddSale?: () => void;
   onDismiss?: (id: string) => void;
   onAction?: (notification: AppNotification) => void;
-  onSimulateNotification?: (type: 'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_1' | 'countdown_0' | null) => void;
+  onSimulateNotification?: (type: 'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_0' | null) => void;
 }
 
 export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = ({
@@ -338,25 +338,19 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                   onClick={() => onSimulateNotification('countdown_10')}
                   className="p-1.5 bg-white rounded border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-center cursor-pointer"
                 >
-                  10 Days Left
+                  Pro: 10 Days Left
                 </button>
                 <button
                   onClick={() => onSimulateNotification('countdown_2')}
-                  className="p-1.5 bg-white rounded border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-center cursor-pointer"
+                  className="p-1.5 bg-white rounded border border-amber-200 hover:bg-amber-50 text-amber-900 font-medium text-center cursor-pointer"
                 >
-                  2 Days Left
-                </button>
-                <button
-                  onClick={() => onSimulateNotification('countdown_1')}
-                  className="p-1.5 bg-white rounded border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-center cursor-pointer"
-                >
-                  1 Day Left
+                  Pro: 2 Days Left
                 </button>
                 <button
                   onClick={() => onSimulateNotification('countdown_0')}
-                  className="p-1.5 bg-white rounded border border-slate-200 hover:bg-slate-50 text-rose-700 font-medium text-center cursor-pointer"
+                  className="p-1.5 bg-white rounded border border-rose-200 hover:bg-rose-50 text-rose-700 font-medium text-center cursor-pointer"
                 >
-                  Same Day (0d)
+                  Pro: Expires Today
                 </button>
                 <button
                   onClick={() => onSimulateNotification('end_of_day')}

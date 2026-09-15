@@ -11,8 +11,12 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   DollarSign,
+  FileText,
+  Sparkles,
 } from 'lucide-react';
 import { SmartBizState } from '../../types';
+import { StandardPdfReportModal } from './StandardPdfReportModal';
+import { printStandardReport } from '../../utils/pdfExport';
 
 interface ReportsModuleProps {
   state: SmartBizState;
@@ -31,6 +35,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ state, onNavigate 
   const currency = settings.currencySymbol || '$';
 
   const [period, setPeriod] = useState<PeriodType>('weekly');
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   // Time filter calculations
   const now = new Date();
@@ -126,21 +131,47 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ state, onNavigate 
         <div className="flex items-center gap-1.5">
           <button
             onClick={handleExportCSV}
-            title="Download CSV"
-            className="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1"
+            title="Download CSV Spreadsheet"
+            className="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
           >
             <Download className="w-4 h-4 text-slate-600" />
             <span className="hidden sm:inline">CSV</span>
           </button>
           <button
-            onClick={() => window.print()}
-            title="Print Statement"
-            className="px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+            onClick={() => setIsPdfModalOpen(true)}
+            title="Export / Print Standard PDF Report"
+            className="px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
           >
-            <Printer className="w-4 h-4" />
-            <span>Print Report</span>
+            <FileText className="w-4 h-4" />
+            <span>Export / Print PDF</span>
           </button>
         </div>
+      </div>
+
+      {/* Standard Full-Size PDF Export Feature Banner */}
+      <div className="bg-gradient-to-r from-emerald-800 to-teal-900 text-white p-3 rounded-xl shadow-xs flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+            <FileText className="w-4 h-4 text-emerald-200" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold">Standard PDF Reports</span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 rounded font-semibold uppercase">
+                Standard A4 / Letter
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-100/90 leading-tight truncate">
+              Official full-size document layout without phone borders or mobile layout constraints
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setIsPdfModalOpen(true)}
+          className="px-3 py-1.5 bg-white text-emerald-900 hover:bg-emerald-50 text-xs font-bold rounded-lg shadow-xs shrink-0 cursor-pointer transition-all active:scale-95"
+        >
+          Export PDF
+        </button>
       </div>
 
       {/* Empty State Callout when no transactions exist */}
@@ -300,6 +331,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ state, onNavigate 
           </div>
         )}
       </div>
+
+      {/* Standard Full-Size PDF / Print Modal */}
+      <StandardPdfReportModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        state={state}
+        initialPeriod={period}
+      />
     </div>
   );
 };

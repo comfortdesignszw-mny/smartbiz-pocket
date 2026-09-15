@@ -203,7 +203,7 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
               <strong className="underline decoration-white/50 text-white">
                 {subStatus.expiryDateStr}
               </strong>
-              . Pay $2.00 via EcoCash or contact Comfort Designs for your renewal key immediately to prevent your sales and products from reverting to free-tier restrictions.
+              . Pay $2.00 via EcoCash or contact Comfort Designs for your renewal key immediately to continue enjoying uninterrupted Pro features.
             </p>
           </div>
 
@@ -274,7 +274,7 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
               <strong className="underline decoration-slate-950/40">
                 {subStatus.daysRemaining} days
               </strong>{' '}
-              ({subStatus.expiryDateStr}). Secure your renewal key ahead of time to ensure continuous unlimited sales recording, unlimited stock catalog, and automatic backups.
+              ({subStatus.expiryDateStr}). Secure your renewal key ahead of time to ensure continuous Pro access and automatic backups.
             </p>
           </div>
 
@@ -340,7 +340,7 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
             </button>
           </div>
           <p className="text-xs text-rose-100 mt-2">
-            Your 30-day Pro plan has expired. Sales limit is currently capped at 100/mo. Generate or enter your new 30-day key to restore full unlimited Pro access.
+            Your 30-day Pro plan has expired. Generate or enter your new 30-day key to restore full Pro access.
           </p>
         </div>
       )}

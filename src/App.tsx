@@ -62,7 +62,9 @@ export default function App() {
   // Notifications state
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
-  const [simulatedNotifType, setSimulatedNotifType] = useState<AppNotificationType | undefined>(undefined);
+  const [simulatedNotifType, setSimulatedNotifType] = useState<
+    'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_0' | undefined
+  >(undefined);
 
   // Quick action modal open states for fast 1-tap from dashboard
   const [salesQuickOpen, setSalesQuickOpen] = useState(false);
@@ -544,56 +546,63 @@ export default function App() {
 
       {/* Frame Container */}
       <div
-        className={`w-full transition-all duration-200 flex flex-col ${
+        id="app-frame-container"
+        className={`app-container w-full transition-all duration-200 flex flex-col ${
           isPhoneFrame
             ? 'max-w-[420px] my-0 sm:my-3 min-h-[96vh] rounded-none sm:rounded-[36px] shadow-2xl border-0 sm:border-[8px] sm:border-slate-800 overflow-hidden bg-slate-100'
             : 'max-w-5xl my-0 min-h-screen bg-slate-100 shadow-xl'
         }`}
       >
         {/* PWA Native Install Prompt Banner */}
-        <PWAInstallBanner />
+        <div className="no-print">
+          <PWAInstallBanner />
+        </div>
 
         {/* Global App Header */}
-        <Header
-          business={state.business}
-          settings={state.settings}
-          onToggleLock={handleLock}
-          isPhoneFrame={isPhoneFrame}
-          onTogglePhoneFrame={() => setIsPhoneFrame(!isPhoneFrame)}
-          onOpenSettings={() => setActiveTab('settings')}
-          onTogglePremium={() => {
-            setPaywallReason('general');
-            setIsPaywallOpen(true);
-          }}
-          notificationCount={activeNotifications.length}
-          onOpenNotifications={() => setIsNotificationCenterOpen(true)}
-        />
+        <div className="no-print">
+          <Header
+            business={state.business}
+            settings={state.settings}
+            onToggleLock={handleLock}
+            isPhoneFrame={isPhoneFrame}
+            onTogglePhoneFrame={() => setIsPhoneFrame(!isPhoneFrame)}
+            onOpenSettings={() => setActiveTab('settings')}
+            onTogglePremium={() => {
+              setPaywallReason('general');
+              setIsPaywallOpen(true);
+            }}
+            notificationCount={activeNotifications.length}
+            onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+          />
+        </div>
 
         {/* Real-time System Notification Banner */}
         {topNotification && (
-          <NotificationBanner
-            notification={topNotification}
-            notifications={activeNotifications}
-            state={state}
-            onDismiss={id => setDismissedNotificationIds(prev => [...prev, id])}
-            onAction={handleNotificationAction}
-            onOpenPaywall={reason => {
-              setPaywallReason(reason || 'general');
-              setIsPaywallOpen(true);
-            }}
-            onOpenNotificationCenter={() => setIsNotificationCenterOpen(true)}
-            onViewAll={() => setIsNotificationCenterOpen(true)}
-            onNavigate={tab => setActiveTab(tab)}
-            onQuickAddSale={() => {
-              if (!state.settings.isPremium && state.sales.length >= FREE_PLAN_SALES_LIMIT) {
-                setPaywallReason('sales_limit');
+          <div className="no-print">
+            <NotificationBanner
+              notification={topNotification}
+              notifications={activeNotifications}
+              state={state}
+              onDismiss={id => setDismissedNotificationIds(prev => [...prev, id])}
+              onAction={handleNotificationAction}
+              onOpenPaywall={reason => {
+                setPaywallReason(reason || 'general');
                 setIsPaywallOpen(true);
-                return;
-              }
-              setActiveTab('sales');
-              setSalesQuickOpen(true);
-            }}
-          />
+              }}
+              onOpenNotificationCenter={() => setIsNotificationCenterOpen(true)}
+              onViewAll={() => setIsNotificationCenterOpen(true)}
+              onNavigate={tab => setActiveTab(tab)}
+              onQuickAddSale={() => {
+                if (!state.settings.isPremium && state.sales.length >= FREE_PLAN_SALES_LIMIT) {
+                  setPaywallReason('sales_limit');
+                  setIsPaywallOpen(true);
+                  return;
+                }
+                setActiveTab('sales');
+                setSalesQuickOpen(true);
+              }}
+            />
+          </div>
         )}
 
         {/* Main Content Area */}
@@ -747,20 +756,24 @@ export default function App() {
           {activeTab === 'flutter' && <FlutterHubModule />}
 
           {/* Persistent Application Footer */}
-          <Footer onOpenLegal={doc => setLegalDocModal(doc)} />
+          <div className="no-print">
+            <Footer onOpenLegal={doc => setLegalDocModal(doc)} />
+          </div>
         </main>
 
         {/* Global Bottom Navigation */}
-        <Navigation
-          activeTab={activeTab}
-          onSelectTab={tab => setActiveTab(tab)}
-          debtorCount={activeDebtorCount}
-          lowStockCount={lowStockCount}
-          isMoreOpen={isMoreOpen}
-          onToggleMore={setIsMoreOpen}
-          isPremium={state.settings.isPremium}
-          onOpenLegal={doc => setLegalDocModal(doc)}
-        />
+        <div className="no-print">
+          <Navigation
+            activeTab={activeTab}
+            onSelectTab={tab => setActiveTab(tab)}
+            debtorCount={activeDebtorCount}
+            lowStockCount={lowStockCount}
+            isMoreOpen={isMoreOpen}
+            onToggleMore={setIsMoreOpen}
+            isPremium={state.settings.isPremium}
+            onOpenLegal={doc => setLegalDocModal(doc)}
+          />
+        </div>
 
         {/* RevenueCat Paywall Modal ($2/30 days Pro Plan via EcoCash USSD) */}
         <RevenueCatPaywallModal

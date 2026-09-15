@@ -1,1 +1,64 @@
 @import "tailwindcss";
+
+/* Standard PDF & Document Print Engine */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 15mm 15mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 10pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Neutralize phone mockups, phone bezels, and phone max-width borders */
+  div[class*="max-w-[420px]"],
+  div[class*="rounded-[36px]"],
+  div[class*="border-[8px]"],
+  div[class*="bg-slate-900"],
+  .app-frame,
+  .app-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide interactive chrome and mobile-only navigation elements during print */
+  header,
+  nav,
+  footer,
+  aside,
+  .no-print,
+  button:not(.allow-print),
+  .pwa-banner,
+  .notification-banner,
+  .quick-action-fab,
+  [role="dialog"] > div:first-child[class*="backdrop"] {
+    display: none !important;
+  }
+
+  /* Force standard table formatting */
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+}
