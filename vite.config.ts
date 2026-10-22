@@ -11,7 +11,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'sw-push.js'],
         manifest: {
           id: '/',
           name: 'SmartBiz Pocket',
@@ -20,6 +20,7 @@ export default defineConfig(() => {
           theme_color: '#065f46',
           background_color: '#0f172a',
           display: 'standalone',
+          orientation: 'portrait',
           start_url: '/',
           scope: '/',
           icons: [
@@ -44,10 +45,51 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
+          importScripts: ['/sw-push.js'],
+          navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api/],
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true,
+          runtimeCaching: [
+            {
+              urlPattern: ({ request }) => request.mode === 'navigate',
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'smartbiz-offline-html',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              urlPattern: ({ request }) =>
+                request.destination === 'script' ||
+                request.destination === 'style' ||
+                request.destination === 'image' ||
+                request.destination === 'font',
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'smartbiz-offline-assets',
+                expiration: {
+                  maxEntries: 120,
+                  maxAgeSeconds: 60 * 60 * 24 * 365,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+          ],
         },
         devOptions: {
-          enabled: false,
+          enabled: true,
+          type: 'module',
         },
       }),
     ],

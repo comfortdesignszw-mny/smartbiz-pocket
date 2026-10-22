@@ -35,6 +35,7 @@ import {
   downloadJsonBackup,
   downloadMonthlyReportCsv,
 } from './utils/notifications';
+import { syncSystemNotificationsWithPush } from './utils/pushNotifications';
 import { DashboardModule } from './components/dashboard/DashboardModule';
 import { SalesModule } from './components/sales/SalesModule';
 import { ExpensesModule } from './components/expenses/ExpensesModule';
@@ -516,6 +517,11 @@ export default function App() {
       return [];
     }
   }, [state, dismissedNotificationIds, simulatedNotifType]);
+
+  // Synchronize system notifications with device push notifications and topbar badge
+  useEffect(() => {
+    syncSystemNotificationsWithPush(activeNotifications);
+  }, [activeNotifications]);
 
   const topNotification = activeNotifications.length > 0 ? activeNotifications[0] : null;
 

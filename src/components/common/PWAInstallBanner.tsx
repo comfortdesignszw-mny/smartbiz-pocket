@@ -48,8 +48,8 @@ export const PWAInstallBanner: React.FC = () => {
     <>
       <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white px-3.5 py-2.5 flex items-center justify-between gap-2 shadow-inner border-b border-emerald-600/50">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center text-emerald-200 shrink-0">
-            <Smartphone className="w-4 h-4 text-emerald-300" />
+          <div className="w-8 h-8 rounded-lg overflow-hidden bg-emerald-950 border border-emerald-400/40 flex items-center justify-center shrink-0 shadow-xs">
+            <img src="/pwa-192x192.png" alt="SmartBiz Ledger" className="w-full h-full object-cover" />
           </div>
           <div className="min-w-0">
             <div className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
@@ -95,8 +95,8 @@ export const PWAInstallBanner: React.FC = () => {
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                  S
+                <div className="w-8 h-8 rounded-lg overflow-hidden bg-emerald-950 border border-emerald-600/40 flex items-center justify-center shrink-0">
+                  <img src="/pwa-192x192.png" alt="SmartBiz Ledger" className="w-full h-full object-cover" />
                 </div>
                 <h3 className="font-bold text-slate-900 text-sm">
                   {isIOS ? 'Install on iPhone / iPad' : 'Add to Home Screen'}

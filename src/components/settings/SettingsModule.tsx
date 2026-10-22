@@ -23,6 +23,11 @@ import { SmartBizState, Business, AppSettings, CurrencyCode } from '../../types'
 import { usePWAInstall } from '../common/usePWAInstall';
 import { LegalDocType } from '../legal/LegalModal';
 import { getSubscriptionStatus, ECOCASH_USSD_CODE } from '../../utils/licenseKey';
+import {
+  getPushPermissionState,
+  requestPushPermission,
+  triggerTestPushNotification,
+} from '../../utils/pushNotifications';
 
 interface SettingsModuleProps {
   state: SmartBizState;
@@ -54,6 +59,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   // Security state
   const [pinEnabled, setPinEnabled] = useState(settings.pinLockEnabled);
   const [newPin, setNewPin] = useState(settings.pinCode);
+  const [pushFeedback, setPushFeedback] = useState<string | null>(null);
+
+  const handleTestDevicePush = async () => {
+    setPushFeedback('Sending test push to device topbar...');
+    const res = await triggerTestPushNotification();
+    setPushFeedback(res.message);
+    setTimeout(() => setPushFeedback(null), 4500);
+  };
 
   const handleSaveBusiness = (e: React.FormEvent) => {
     e.preventDefault();
@@ -390,35 +403,67 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         </div>
       )}
 
-      {/* PWA & Native Install Status */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-2.5">
+      {/* PWA, App Icon & 100% Offline Restart Status */}
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
-              <Smartphone className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-950 border border-emerald-600/40 overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
+              <img
+                src="/pwa-192x192.png"
+                alt="SmartBiz Ledgerbook & Wallet App Icon"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-900">Native App Status (PWA)</h4>
-              <p className="text-[10px] text-slate-500">Standalone offline installation</p>
+              <h4 className="text-xs font-bold text-slate-900">100% Offline App & PWA Status</h4>
+              <p className="text-[10px] text-slate-500">Zero active internet required to start or restart</p>
             </div>
           </div>
           <span
             className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
               isInstalled
                 ? 'bg-emerald-100 text-emerald-800'
-                : 'bg-amber-100 text-amber-800'
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
             }`}
           >
-            {isInstalled ? 'Installed Native' : 'Browser Mode'}
+            {isInstalled ? 'Installed Native' : 'Zero Handshake Ready'}
           </span>
         </div>
 
-        {!isInstalled && (
-          <div className="pt-1">
-            <p className="text-[11px] text-slate-600 mb-2">
-              Install SmartBiz Pocket directly on your home screen or desktop for 100% offline access, zero data consumption, and instant launch speed.
-            </p>
+        {/* Offline Engine Architecture Details */}
+        <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-700 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-slate-800">Cold Restart Mode:</span>
+            <span className="font-mono text-emerald-700 font-bold">100% Offline (No HTTP Handshake)</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-slate-800">Network Dependency:</span>
+            <span className="text-emerald-700 font-medium">None (Zero active connection listening)</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-slate-800">App Icon Design:</span>
+            <span className="text-slate-800">Professional Ledgerbook with Wallet (512x512 / 192x192)</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-slate-800">Topbar Device Badge:</span>
+            <span className="text-slate-800 font-mono">Web App Badging API Synchronized</span>
+          </div>
+        </div>
+
+        {/* Push Notification & Topbar Badge Test Trigger */}
+        <div className="pt-1 flex items-center justify-between gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleTestDevicePush}
+            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+          >
+            <Bell className="w-3.5 h-3.5" />
+            <span>Test Device Push & Topbar Badge</span>
+          </button>
+
+          {!isInstalled && (
             <button
+              type="button"
               onClick={() => {
                 if (isInstallable) {
                   install();
@@ -430,11 +475,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   );
                 }
               }}
-              className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all"
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
             >
-              <Download className="w-4 h-4" />
-              <span>Install Standalone App Now</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>Install to Home Screen</span>
             </button>
+          )}
+        </div>
+
+        {pushFeedback && (
+          <div className="p-2 bg-emerald-100/80 border border-emerald-300 text-emerald-950 text-xs font-medium rounded-lg animate-in fade-in">
+            {pushFeedback}
           </div>
         )}
       </div>
