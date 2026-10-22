@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Smartphone, Monitor, Crown, MapPin, Clock, Calendar, AlertTriangle, Bell } from 'lucide-react';
 import { Business, AppSettings } from '../../types';
 import { getSubscriptionStatus } from '../../utils/licenseKey';
+import { getPushPermissionState, requestPushPermission } from '../../utils/pushNotifications';
 
 interface HeaderProps {
   business: Business;
@@ -55,54 +56,19 @@ export const Header: React.FC<HeaderProps> = ({
   const isAlert2d = subStatus.isPro && subStatus.daysRemaining <= 2 && !subStatus.isExpired;
   const isAlert5d = subStatus.isPro && subStatus.daysRemaining <= 5 && subStatus.daysRemaining > 2 && !subStatus.isExpired;
 
+  const handleBellClick = async () => {
+    if (getPushPermissionState() === 'default') {
+      try {
+        await requestPushPermission();
+      } catch {
+        // ignore
+      }
+    }
+    onOpenNotifications?.();
+  };
+
   return (
     <header className="bg-emerald-800 text-white shadow-md select-none z-30">
-      {/* Device Topbar / System Status Strip with Notification Badge on Topbar */}
-      <div className="w-full bg-emerald-950 text-emerald-200 px-3 py-1 flex items-center justify-between text-[11px] font-mono border-b border-emerald-900/60 select-none">
-        <div className="flex items-center gap-2">
-          {/* Device Clock */}
-          <span className="font-bold text-white tracking-wide">{formattedTime.slice(0, 5)}</span>
-
-          {/* Topbar of Device Push Notification Badge */}
-          {notificationCount > 0 ? (
-            <button
-              type="button"
-              onClick={onOpenNotifications}
-              title={`${notificationCount} active notification(s) on device topbar`}
-              className="inline-flex items-center gap-1 bg-rose-600 hover:bg-rose-500 text-white px-2 py-0.2 rounded-full text-[9px] font-bold shadow-xs cursor-pointer animate-pulse transition-all"
-            >
-              <Bell className="w-2.5 h-2.5 fill-current" />
-              <span>{notificationCount}</span>
-            </button>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[9px] text-emerald-400/80">
-              <Bell className="w-2.5 h-2.5" />
-              <span>0</span>
-            </span>
-          )}
-        </div>
-
-        {/* Center Device Speaker / Notch detail */}
-        <div className="w-12 h-1 bg-emerald-900/80 rounded-full hidden sm:block" />
-
-        {/* Right Device Telemetry: Zero Internet Handshake / 100% Offline */}
-        <div className="flex items-center gap-2 text-[10px]">
-          <span className="inline-flex items-center gap-1 text-emerald-300 font-sans font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>100% Offline</span>
-          </span>
-          <span className="text-emerald-500">•</span>
-          <span className="font-mono text-emerald-300">0 KB Net</span>
-          <span className="text-emerald-500">•</span>
-          <span className="font-sans text-emerald-200 flex items-center gap-0.5 font-bold">
-            <span>100%</span>
-            <span className="inline-block w-3.5 h-2 border border-emerald-300 rounded-[2px] p-[1px] ml-0.5">
-              <span className="block h-full bg-emerald-400 rounded-[1px] w-full" />
-            </span>
-          </span>
-        </div>
-      </div>
-
       {/* Main Header Navigation Row */}
       <div className="px-3 py-2 flex items-center justify-between flex-wrap gap-2">
         {/* Left: Business Name & Recorded City/Town Location from Profile */}
@@ -119,10 +85,6 @@ export const Header: React.FC<HeaderProps> = ({
               <h1 className="font-bold text-sm sm:text-base leading-tight truncate text-white">
                 {business.name || 'SmartBiz Pocket'}
               </h1>
-              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-700/80 text-emerald-100 border border-emerald-500/40 shrink-0">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse" />
-                No Handshake
-              </span>
             </div>
 
           {/* City / Town recorded in profile in settings */}
@@ -164,10 +126,10 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Controls */}
         <div className="flex items-center gap-1 shrink-0">
-          {/* Notification Center Bell */}
+          {/* Notification Center Bell with Push Alert Link */}
           {onOpenNotifications && (
             <button
-              onClick={onOpenNotifications}
+              onClick={handleBellClick}
               title={`${notificationCount} System Notification${notificationCount === 1 ? '' : 's'}`}
               className="relative p-1.5 rounded-md hover:bg-emerald-700/80 text-emerald-100 transition-colors"
             >

@@ -10,6 +10,7 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       VitePWA({
+        injectRegister: null,
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'sw-push.js'],
         manifest: {
@@ -23,6 +24,7 @@ export default defineConfig(() => {
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
+          categories: ['business', 'finance', 'productivity'],
           icons: [
             {
               src: '/pwa-192x192.png',
@@ -41,6 +43,38 @@ export default defineConfig(() => {
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',
+            },
+          ],
+          shortcuts: [
+            {
+              name: 'Record Sale',
+              short_name: 'Sale',
+              description: 'Quickly record a new sale',
+              url: '/?tab=sales',
+              icons: [{ src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+            },
+            {
+              name: 'Manage Stock',
+              short_name: 'Stock',
+              description: 'Manage products and inventory',
+              url: '/?tab=inventory',
+              icons: [{ src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+            },
+          ],
+          screenshots: [
+            {
+              src: '/screenshots/screenshot-narrow.png',
+              sizes: '540x960',
+              type: 'image/png',
+              form_factor: 'narrow',
+              label: 'SmartBiz Pocket Mobile Ledger',
+            },
+            {
+              src: '/screenshots/screenshot-wide.png',
+              sizes: '1280x720',
+              type: 'image/png',
+              form_factor: 'wide',
+              label: 'SmartBiz Pocket Dashboard Overview',
             },
           ],
         },
@@ -88,8 +122,7 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
-          type: 'module',
+          enabled: false,
         },
       }),
     ],
@@ -99,6 +132,9 @@ export default defineConfig(() => {
       },
     },
     server: {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

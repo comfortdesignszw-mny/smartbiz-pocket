@@ -250,3 +250,188 @@ export function createSmsProofUrl(businessName: string): string {
   const text = `SmartBiz Pocket Pro: I paid $2 via EcoCash for ${businessName || 'my business'}. Please send my 30-day activation key.`;
   return `sms:+263772824132?body=${encodeURIComponent(text)}`;
 }
+
+/**
+ * Persisted Account / Business Pro Subscription Store
+ * Ensures that if any account or business name is subscribed to Pro,
+ * the Pro subscription is persisted to that business name / user account
+ * for up to 30 days and automatically restored every time they open or switch to it.
+ */
+
+export interface PersistedAccountSubscription {
+  id: string;
+  accountKey: string;
+  businessName: string;
+  ownerName?: string;
+  phone?: string;
+  isPro: boolean;
+  subscriptionKey: string;
+  durationDays: number;
+  activatedAt: string;
+  expiryDate: string;
+}
+
+export const PERSISTED_SUBSCRIPTIONS_STORAGE_KEY = 'smartbiz_persisted_account_subscriptions';
+
+function cleanIdentifier(str?: string): string {
+  if (!str) return '';
+  return str.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Retrieve all persisted account / business subscriptions from storage
+ */
+export function getAllPersistedSubscriptions(): PersistedAccountSubscription[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(PERSISTED_SUBSCRIPTIONS_STORAGE_KEY);
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch (err) {
+    console.error('Failed to read persisted account subscriptions:', err);
+    return [];
+  }
+}
+
+/**
+ * Check if a specific account, business name, or user name has an active (unexpired) Pro subscription
+ */
+export function getPersistedSubscriptionForAccount(
+  businessName?: string,
+  ownerName?: string,
+  phone?: string
+): PersistedAccountSubscription | null {
+  const cleanBiz = cleanIdentifier(businessName);
+  const cleanOwner = cleanIdentifier(ownerName);
+  const cleanPhone = cleanIdentifier(phone);
+
+  if (!cleanBiz && !cleanOwner && !cleanPhone) {
+    return null;
+  }
+
+  const all = getAllPersistedSubscriptions();
+  const now = Date.now();
+
+  // Find matching active subscriptions
+  const matches = all.filter(sub => {
+    if (!sub.isPro) return false;
+    const expiry = new Date(sub.expiryDate).getTime();
+    if (expiry <= now) return false; // expired
+
+    const subBiz = cleanIdentifier(sub.businessName);
+    const subOwner = cleanIdentifier(sub.ownerName);
+    const subPhone = cleanIdentifier(sub.phone);
+    const subKey = cleanIdentifier(sub.accountKey);
+
+    if (cleanBiz && (subBiz === cleanBiz || subKey === cleanBiz)) return true;
+    if (cleanOwner && (subOwner === cleanOwner || subBiz === cleanOwner)) return true;
+    if (cleanPhone && subPhone === cleanPhone) return true;
+
+    return false;
+  });
+
+  if (matches.length === 0) return null;
+
+  // Pick the match with the furthest future expiry date
+  matches.sort((a, b) => new Date(b.expiryDate).getTime() - new Date(a.expiryDate).getTime());
+  return matches[0];
+}
+
+/**
+ * Persist or renew a Pro subscription for a user account, business name, or owner
+ * Guaranteed to persist for up to 30 days (or specified days).
+ */
+export function savePersistedSubscriptionForAccount(params: {
+  businessName?: string;
+  ownerName?: string;
+  phone?: string;
+  subscriptionKey?: string;
+  durationDays?: number;
+  activatedAt?: string;
+  expiryDate?: string;
+}): PersistedAccountSubscription {
+  const all = getAllPersistedSubscriptions();
+  const now = Date.now();
+  const days = params.durationDays && params.durationDays > 0 ? params.durationDays : PRO_PLAN_DURATION_DAYS;
+  const activatedAt = params.activatedAt || new Date().toISOString();
+  const expiryDate =
+    params.expiryDate || new Date(now + days * 24 * 60 * 60 * 1000).toISOString();
+
+  const bizName = params.businessName?.trim() || 'My Business';
+  const ownerName = params.ownerName?.trim() || '';
+  const phone = params.phone?.trim() || '';
+  const accountKey = cleanIdentifier(bizName) || cleanIdentifier(ownerName) || 'default-account';
+  const subKey = params.subscriptionKey?.trim().toUpperCase() || generateSubscriptionKey(days);
+
+  const cleanBiz = cleanIdentifier(bizName);
+  const cleanOwner = cleanIdentifier(ownerName);
+  const cleanPhone = cleanIdentifier(phone);
+
+  const existingIdx = all.findIndex(sub => {
+    const sBiz = cleanIdentifier(sub.businessName);
+    const sOwner = cleanIdentifier(sub.ownerName);
+    const sPhone = cleanIdentifier(sub.phone);
+    const sKey = cleanIdentifier(sub.accountKey);
+
+    if (cleanBiz && (sBiz === cleanBiz || sKey === cleanBiz)) return true;
+    if (cleanOwner && sOwner === cleanOwner) return true;
+    if (cleanPhone && sPhone === cleanPhone) return true;
+    return false;
+  });
+
+  const record: PersistedAccountSubscription = {
+    id: existingIdx >= 0 ? all[existingIdx].id : 'sub-acc-' + Date.now(),
+    accountKey,
+    businessName: bizName,
+    ownerName,
+    phone,
+    isPro: true,
+    subscriptionKey: subKey,
+    durationDays: days,
+    activatedAt,
+    expiryDate,
+  };
+
+  if (existingIdx >= 0) {
+    all[existingIdx] = record;
+  } else {
+    all.unshift(record);
+  }
+
+  try {
+    localStorage.setItem(PERSISTED_SUBSCRIPTIONS_STORAGE_KEY, JSON.stringify(all));
+  } catch (err) {
+    console.error('Failed to save persisted account subscription:', err);
+  }
+
+  return record;
+}
+
+/**
+ * Remove or deactivate a persisted subscription for an account
+ */
+export function removePersistedSubscriptionForAccount(
+  businessName?: string,
+  ownerName?: string
+): void {
+  const cleanBiz = cleanIdentifier(businessName);
+  const cleanOwner = cleanIdentifier(ownerName);
+  const all = getAllPersistedSubscriptions();
+
+  const updated = all.map(sub => {
+    const sBiz = cleanIdentifier(sub.businessName);
+    const sOwner = cleanIdentifier(sub.ownerName);
+    if ((cleanBiz && sBiz === cleanBiz) || (cleanOwner && sOwner === cleanOwner)) {
+      return { ...sub, isPro: false };
+    }
+    return sub;
+  });
+
+  try {
+    localStorage.setItem(PERSISTED_SUBSCRIPTIONS_STORAGE_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.error('Failed to update persisted account subscriptions:', err);
+  }
+}
+

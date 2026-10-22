@@ -13,6 +13,12 @@ import {
   Code2,
   X,
   UserCheck,
+  Crown,
+  Bell,
+  Lock,
+  Smartphone,
+  Monitor,
+  Sparkles,
 } from 'lucide-react';
 import { LegalDocType } from '../legal/LegalModal';
 
@@ -38,6 +44,15 @@ interface NavigationProps {
   onToggleMore: (open: boolean) => void;
   isPremium?: boolean;
   onOpenLegal?: (doc: LegalDocType) => void;
+  isPhoneFrame?: boolean;
+  onTogglePhoneFrame?: () => void;
+  onToggleLock?: () => void;
+  pinLockEnabled?: boolean;
+  notificationCount?: number;
+  onOpenNotifications?: () => void;
+  onOpenPaywall?: () => void;
+  subscriptionDaysRemaining?: number;
+  isProExpired?: boolean;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -49,6 +64,15 @@ export const Navigation: React.FC<NavigationProps> = ({
   onToggleMore,
   isPremium = false,
   onOpenLegal,
+  isPhoneFrame = true,
+  onTogglePhoneFrame,
+  onToggleLock,
+  pinLockEnabled = false,
+  notificationCount = 0,
+  onOpenNotifications,
+  onOpenPaywall,
+  subscriptionDaysRemaining = 0,
+  isProExpired = false,
 }) => {
   const isMoreActive = ['customers', 'reports', 'insights', 'backup', 'settings', 'flutter'].includes(activeTab);
 
@@ -61,7 +85,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           onClick={() => onToggleMore(false)}
         >
           <div
-            className="w-full max-w-lg bg-white rounded-t-2xl p-4 shadow-2xl pb-6 animate-in slide-in-from-bottom-5 duration-200"
+            className="w-full max-w-lg bg-white rounded-t-2xl p-4 shadow-2xl pb-6 max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom-5 duration-200"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
@@ -71,10 +95,92 @@ export const Navigation: React.FC<NavigationProps> = ({
               </div>
               <button
                 onClick={() => onToggleMore(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Pro Subscription Banner inside More Drawer */}
+            <div className="mb-3 p-3 rounded-xl bg-gradient-to-r from-emerald-900 to-slate-900 text-white flex items-center justify-between gap-2 shadow-sm">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
+                  <Crown className="w-4 h-4 text-amber-400 fill-amber-400" />
+                </div>
+                <div className="truncate">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold truncate">
+                      {isPremium && !isProExpired
+                        ? `Pro Plan Active (${subscriptionDaysRemaining}d left)`
+                        : isProExpired
+                        ? 'Pro Plan Expired'
+                        : 'Free Plan Active'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-emerald-200 truncate">
+                    {isPremium && !isProExpired
+                      ? 'Unlimited sales & cloud backup'
+                      : 'Upgrade for $2/mo via EcoCash USSD'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onToggleMore(false);
+                  onOpenPaywall?.();
+                }}
+                className="px-2.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold rounded-lg shrink-0 shadow-xs cursor-pointer transition-colors"
+              >
+                {isPremium && !isProExpired ? 'Manage' : 'Upgrade'}
+              </button>
+            </div>
+
+            {/* Quick Actions Row: Notifications, Lock, View Switcher */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {onOpenNotifications && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleMore(false);
+                    onOpenNotifications();
+                  }}
+                  className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 hover:bg-slate-100 text-xs font-semibold relative transition-colors cursor-pointer"
+                >
+                  <Bell className="w-4 h-4 text-emerald-600" />
+                  <span>Alerts</span>
+                  {notificationCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-bold">
+                      {notificationCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {pinLockEnabled && onToggleLock && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleMore(false);
+                    onToggleLock();
+                  }}
+                  className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Lock className="w-4 h-4 text-amber-600" />
+                  <span>Lock App</span>
+                </button>
+              )}
+
+              {onTogglePhoneFrame && (
+                <button
+                  type="button"
+                  onClick={onTogglePhoneFrame}
+                  className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  {isPhoneFrame ? <Monitor className="w-4 h-4 text-sky-600" /> : <Smartphone className="w-4 h-4 text-sky-600" />}
+                  <span>{isPhoneFrame ? 'Desktop' : 'Phone'}</span>
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-2.5">

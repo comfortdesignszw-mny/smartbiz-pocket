@@ -20,6 +20,10 @@ import {
   Check,
   PhoneCall,
   X,
+  MapPin,
+  Calendar,
+  Bell,
+  Lock,
 } from 'lucide-react';
 import { SmartBizState } from '../../types';
 import { TabType } from '../common/Navigation';
@@ -38,6 +42,9 @@ interface DashboardModuleProps {
   onQuickAddExpense: () => void;
   onQuickAddProduct: () => void;
   onQuickAddCustomer: () => void;
+  onOpenNotifications?: () => void;
+  notificationCount?: number;
+  onToggleLock?: () => void;
 }
 
 export const DashboardModule: React.FC<DashboardModuleProps> = ({
@@ -48,6 +55,9 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
   onQuickAddExpense,
   onQuickAddProduct,
   onQuickAddCustomer,
+  onOpenNotifications,
+  notificationCount = 0,
+  onToggleLock,
 }) => {
   const products = state.products || [];
   const sales = state.sales || [];
@@ -61,6 +71,30 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
   });
   const [welcomeSecondsRemaining, setWelcomeSecondsRemaining] = useState(60);
   const welcomeCardRef = useRef<HTMLDivElement>(null);
+
+  // Synchronized realtime device clock
+  const [deviceTime, setDeviceTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDeviceTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedDate = deviceTime.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  const formattedTime = deviceTime.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const userLocation = state.business.location?.trim() || 'Harare CBD';
 
   const handleDismissWelcome = () => {
     setWelcomeDismissed(true);
@@ -165,6 +199,115 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
 
   return (
     <div className="space-y-4 pb-6">
+      {/* Sleek Mobile Shop Header (Replaces top navigation) */}
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between gap-2.5">
+        {/* Left: Shop Logo & Name & City Location */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-500/40 overflow-hidden flex items-center justify-center shrink-0 shadow-inner">
+            <img
+              src="/pwa-192x192.png"
+              alt="SmartBiz Pocket"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="truncate">
+            <h1 className="font-extrabold text-sm sm:text-base text-slate-900 leading-tight truncate">
+              {state.business.name || 'SmartBiz Pocket'}
+            </h1>
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 truncate mt-0.5">
+              <button
+                type="button"
+                onClick={() => onNavigate('settings')}
+                title="City/Town from profile in Settings (Tap to edit)"
+                className="hover:text-emerald-700 flex items-center gap-1 truncate transition-colors text-left font-medium"
+              >
+                <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span className="truncate underline decoration-dotted underline-offset-2">
+                  {userLocation}
+                </span>
+              </button>
+              <span>•</span>
+              <span className="font-mono text-slate-600 font-semibold">{currency} ({state.settings.currency})</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Clock, Notifications Bell, Pro Badge & Lock */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Synchronized Live Clock Pill (hidden on very small screens, visible from sm) */}
+          <div
+            title="Device synchronized clock"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 rounded-lg text-slate-600 font-mono text-[11px] border border-slate-200"
+          >
+            <Calendar className="w-3 h-3 text-emerald-600" />
+            <span>{formattedDate}</span>
+            <span className="text-slate-300">•</span>
+            <Clock className="w-3 h-3 text-emerald-600 animate-pulse" />
+            <span className="font-bold text-slate-800">{formattedTime}</span>
+          </div>
+
+          {/* Notifications Bell */}
+          {onOpenNotifications && (
+            <button
+              type="button"
+              onClick={onOpenNotifications}
+              title={`${notificationCount} Notifications`}
+              className="relative p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+            >
+              <Bell className="w-4 h-4" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-xs animate-pulse">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Pro / Free Plan Badge Button */}
+          <button
+            type="button"
+            onClick={onOpenPaywall}
+            title={
+              subStatus.isPro
+                ? `Pro Plan Active (${subStatus.daysRemaining} days remaining)`
+                : 'Free Tier (Tap to upgrade to Pro for $2/mo)'
+            }
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+              isAlert2Days
+                ? 'bg-rose-500 hover:bg-rose-600 text-white font-black animate-pulse'
+                : isAlert5Days
+                ? 'bg-amber-400 hover:bg-amber-500 text-slate-950'
+                : subStatus.isPro
+                ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
+            }`}
+          >
+            <Crown className={`w-3.5 h-3.5 ${subStatus.isPro ? 'fill-current' : ''}`} />
+            <span>
+              {isAlert2Days
+                ? `${subStatus.daysRemaining}d Left!`
+                : isAlert5Days
+                ? `${subStatus.daysRemaining}d Left`
+                : subStatus.isPro
+                ? 'PRO'
+                : 'Free Plan'}
+            </span>
+          </button>
+
+          {/* PIN Lock Button */}
+          {state.settings.pinLockEnabled && onToggleLock && (
+            <button
+              type="button"
+              onClick={onToggleLock}
+              title="Lock Application with PIN"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+            >
+              <Lock className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ================================================================ */}
       {/* Pro Subscription Alerts: 2-Day Urgent Alert & 5-Day Notice Banner*/}
       {/* ================================================================ */}

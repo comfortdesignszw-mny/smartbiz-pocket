@@ -1,6 +1,49 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (function() {
+        var isViteHmrError = function(str) {
+          if (!str) return false;
+          var s = String(str);
+          return s.indexOf("reading 'send'") !== -1 ||
+                 s.indexOf("reading 'readyState'") !== -1 ||
+                 s.indexOf("failed to connect to websocket") !== -1 ||
+                 s.indexOf("WebSocket") !== -1 ||
+                 s.indexOf("vite:ws") !== -1 ||
+                 s.indexOf("@vite/client") !== -1 ||
+                 s.indexOf("pwa-entry-point-loaded") !== -1;
+        };
+        var origError = console.error;
+        console.error = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            if (isViteHmrError(arguments[i])) return;
+          }
+          origError.apply(console, arguments);
+        };
+        var origWarn = console.warn;
+        console.warn = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            if (isViteHmrError(arguments[i])) return;
+          }
+          origWarn.apply(console, arguments);
+        };
+        window.addEventListener('error', function(e) {
+          if (isViteHmrError(e.message) || (e.error && isViteHmrError(e.error.message)) || isViteHmrError(e.filename)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+        window.addEventListener('unhandledrejection', function(e) {
+          var reason = e.reason ? (e.reason.message || String(e.reason)) : '';
+          if (isViteHmrError(reason)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>SmartBiz Pocket - Offline Business Manager</title>

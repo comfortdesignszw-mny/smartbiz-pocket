@@ -3,12 +3,16 @@
   "name": "SmartBiz Pocket",
   "short_name": "SmartBiz",
   "description": "Lightweight, ultra-fast, offline-first business management app for informal traders, vendors, and small retail businesses.",
+  "lang": "en",
+  "dir": "ltr",
   "theme_color": "#065f46",
   "background_color": "#0f172a",
   "display": "standalone",
   "orientation": "portrait",
   "start_url": "/",
   "scope": "/",
+  "categories": ["business", "finance", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/pwa-192x192.png",
@@ -27,6 +31,50 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Record Sale",
+      "short_name": "Sale",
+      "description": "Quickly record a new sale",
+      "url": "/?tab=sales",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Manage Stock",
+      "short_name": "Stock",
+      "description": "Manage products and inventory",
+      "url": "/?tab=inventory",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/screenshot-narrow.png",
+      "sizes": "540x960",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "SmartBiz Pocket Mobile Ledger"
+    },
+    {
+      "src": "/screenshots/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "SmartBiz Pocket Dashboard Overview"
     }
   ]
 }

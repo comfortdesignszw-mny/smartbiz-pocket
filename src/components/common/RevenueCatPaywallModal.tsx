@@ -639,6 +639,10 @@ export const RevenueCatPaywallModal: React.FC<RevenueCatPaywallModalProps> = ({
                       </div>
                     )}
                   </div>
+                  <p className="text-[10px] text-amber-900 font-medium flex items-center gap-1 pt-0.5">
+                    <ShieldCheck className="w-3 h-3 text-emerald-700 shrink-0" />
+                    <span>Persisted to Account: Pro status is permanently bound to <strong>{subscriberName.trim() || businessName || 'your business'}</strong> for 30 days.</span>
+                  </p>
                 </div>
 
                 <button

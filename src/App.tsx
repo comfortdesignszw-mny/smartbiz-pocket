@@ -24,7 +24,6 @@ import {
   FREE_PLAN_SALES_LIMIT,
   FREE_PLAN_INVENTORY_LIMIT,
 } from './types';
-import { Header } from './components/common/Header';
 import { Navigation, TabType } from './components/common/Navigation';
 import { PinLockModal } from './components/common/PinLockModal';
 import { PWAInstallBanner } from './components/common/PWAInstallBanner';
@@ -50,9 +49,37 @@ import { FlutterHubModule } from './components/flutter/FlutterHubModule';
 import { Footer } from './components/common/Footer';
 import { LegalModal, LegalDocType } from './components/legal/LegalModal';
 import { RevenueCatPaywallModal } from './components/common/RevenueCatPaywallModal';
+import {
+  getSubscriptionStatus,
+  getPersistedSubscriptionForAccount,
+  savePersistedSubscriptionForAccount,
+  removePersistedSubscriptionForAccount,
+} from './utils/licenseKey';
 
 export default function App() {
-  const [state, setState] = useState<SmartBizState>(() => loadSmartBizState());
+  const [state, setState] = useState<SmartBizState>(() => {
+    const loaded = loadSmartBizState();
+    // Check if current account/business has an active persisted Pro subscription
+    const persistedSub = getPersistedSubscriptionForAccount(
+      loaded.business.name,
+      loaded.business.ownerName,
+      loaded.business.phone
+    );
+    if (persistedSub && (!loaded.settings.isPremium || !loaded.settings.subscriptionExpiryDate)) {
+      return {
+        ...loaded,
+        settings: {
+          ...loaded.settings,
+          isPremium: true,
+          subscriptionKey: persistedSub.subscriptionKey,
+          subscriptionExpiryDate: persistedSub.expiryDate,
+          subscriptionActivatedAt: persistedSub.activatedAt,
+          subscriptionPaymentMethod: 'ecocash_ussd',
+        },
+      };
+    }
+    return loaded;
+  });
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isPhoneFrame, setIsPhoneFrame] = useState(true);
@@ -73,10 +100,57 @@ export default function App() {
   const [stockQuickOpen, setStockQuickOpen] = useState(false);
   const [customerQuickOpen, setCustomerQuickOpen] = useState(false);
 
+  // Pro subscription active status calculation
+  const subStatus = useMemo(() => getSubscriptionStatus(state.settings), [state.settings]);
+
   // Save to local storage on any state change
   useEffect(() => {
     saveSmartBizState(state);
   }, [state]);
+
+  // Synchronize and persist Pro subscription to current business account/name (up to 30 days)
+  useEffect(() => {
+    const persisted = getPersistedSubscriptionForAccount(
+      state.business.name,
+      state.business.ownerName,
+      state.business.phone
+    );
+
+    if (persisted && !state.settings.isPremium) {
+      // Automatically restore Pro for this business account
+      setState(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          isPremium: true,
+          subscriptionKey: persisted.subscriptionKey,
+          subscriptionExpiryDate: persisted.expiryDate,
+          subscriptionActivatedAt: persisted.activatedAt,
+        },
+      }));
+    } else if (state.settings.isPremium && state.settings.subscriptionExpiryDate) {
+      // Ensure the active subscription is persisted in the multi-account registry
+      const expiry = new Date(state.settings.subscriptionExpiryDate).getTime();
+      if (expiry > Date.now()) {
+        savePersistedSubscriptionForAccount({
+          businessName: state.business.name,
+          ownerName: state.business.ownerName,
+          phone: state.business.phone,
+          subscriptionKey: state.settings.subscriptionKey,
+          expiryDate: state.settings.subscriptionExpiryDate,
+          activatedAt: state.settings.subscriptionActivatedAt,
+        });
+      }
+    }
+  }, [
+    state.business.name,
+    state.business.ownerName,
+    state.business.phone,
+    state.settings.isPremium,
+    state.settings.subscriptionExpiryDate,
+    state.settings.subscriptionKey,
+    state.settings.subscriptionActivatedAt,
+  ]);
 
   // Unlock from PIN screen
   const handleUnlock = () => {
@@ -369,7 +443,43 @@ export default function App() {
 
   // 6. Settings & Business
   const handleUpdateBusiness = (biz: Business) => {
-    setState(prev => ({ ...prev, business: biz }));
+    // Check if the newly entered/switched business has an active Pro subscription in the registry
+    const targetSub = getPersistedSubscriptionForAccount(biz.name, biz.ownerName, biz.phone);
+
+    setState(prev => {
+      // If the current account is Pro, ensure it is persisted to the new business name as well
+      if (prev.settings.isPremium && prev.settings.subscriptionExpiryDate) {
+        const isExp = new Date(prev.settings.subscriptionExpiryDate).getTime() <= Date.now();
+        if (!isExp) {
+          savePersistedSubscriptionForAccount({
+            businessName: biz.name,
+            ownerName: biz.ownerName,
+            phone: biz.phone,
+            subscriptionKey: prev.settings.subscriptionKey,
+            expiryDate: prev.settings.subscriptionExpiryDate,
+            activatedAt: prev.settings.subscriptionActivatedAt,
+          });
+          return { ...prev, business: biz };
+        }
+      }
+
+      // If switching to an account that has a persisted Pro subscription, restore it immediately
+      if (targetSub) {
+        return {
+          ...prev,
+          business: biz,
+          settings: {
+            ...prev.settings,
+            isPremium: true,
+            subscriptionKey: targetSub.subscriptionKey,
+            subscriptionExpiryDate: targetSub.expiryDate,
+            subscriptionActivatedAt: targetSub.activatedAt,
+          },
+        };
+      }
+
+      return { ...prev, business: biz };
+    });
   };
 
   const handleUpdateSettings = (sett: AppSettings) => {
@@ -387,6 +497,29 @@ export default function App() {
     const clientName = subscriberName?.trim() || state.business.name || 'Store Merchant';
     const clientPhone = subscriberPhone?.trim() || state.business.phone || '';
 
+    // Persist to the account / business subscription store for 30 days
+    savePersistedSubscriptionForAccount({
+      businessName: clientName,
+      ownerName: state.business.ownerName,
+      phone: clientPhone,
+      subscriptionKey: cleanKey,
+      durationDays: days,
+      expiryDate,
+      activatedAt: new Date().toISOString(),
+    });
+
+    if (state.business.name && state.business.name !== clientName) {
+      savePersistedSubscriptionForAccount({
+        businessName: state.business.name,
+        ownerName: state.business.ownerName,
+        phone: state.business.phone,
+        subscriptionKey: cleanKey,
+        durationDays: days,
+        expiryDate,
+        activatedAt: new Date().toISOString(),
+      });
+    }
+
     const newRecord: SubscriptionRecord = {
       id: 'sub-' + Date.now(),
       clientName,
@@ -397,7 +530,7 @@ export default function App() {
       activatedAt: new Date().toISOString(),
       expiryDate,
       status: 'active',
-      notes: `Self-activated in app (${days} days)`,
+      notes: `Persisted account Pro subscription (${days} days)`,
     };
 
     setState(prev => {
@@ -462,6 +595,7 @@ export default function App() {
   };
 
   const handleDowngradeSubscription = () => {
+    removePersistedSubscriptionForAccount(state.business.name, state.business.ownerName);
     setState(prev => ({
       ...prev,
       settings: {
@@ -564,24 +698,6 @@ export default function App() {
           <PWAInstallBanner />
         </div>
 
-        {/* Global App Header */}
-        <div className="no-print">
-          <Header
-            business={state.business}
-            settings={state.settings}
-            onToggleLock={handleLock}
-            isPhoneFrame={isPhoneFrame}
-            onTogglePhoneFrame={() => setIsPhoneFrame(!isPhoneFrame)}
-            onOpenSettings={() => setActiveTab('settings')}
-            onTogglePremium={() => {
-              setPaywallReason('general');
-              setIsPaywallOpen(true);
-            }}
-            notificationCount={activeNotifications.length}
-            onOpenNotifications={() => setIsNotificationCenterOpen(true)}
-          />
-        </div>
-
         {/* Real-time System Notification Banner */}
         {topNotification && (
           <div className="no-print">
@@ -621,6 +737,9 @@ export default function App() {
                 setPaywallReason('general');
                 setIsPaywallOpen(true);
               }}
+              onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+              notificationCount={activeNotifications.length}
+              onToggleLock={handleLock}
               onQuickAddSale={() => {
                 if (!state.settings.isPremium && state.sales.length >= FREE_PLAN_SALES_LIMIT) {
                   setPaywallReason('sales_limit');
@@ -778,6 +897,18 @@ export default function App() {
             onToggleMore={setIsMoreOpen}
             isPremium={state.settings.isPremium}
             onOpenLegal={doc => setLegalDocModal(doc)}
+            isPhoneFrame={isPhoneFrame}
+            onTogglePhoneFrame={() => setIsPhoneFrame(!isPhoneFrame)}
+            onToggleLock={handleLock}
+            pinLockEnabled={state.settings.pinLockEnabled}
+            notificationCount={activeNotifications.length}
+            onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+            onOpenPaywall={() => {
+              setPaywallReason('general');
+              setIsPaywallOpen(true);
+            }}
+            subscriptionDaysRemaining={subStatus.daysRemaining}
+            isProExpired={subStatus.isExpired}
           />
         </div>
 

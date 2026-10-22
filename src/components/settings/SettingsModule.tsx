@@ -149,7 +149,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              City / Town & Location <span className="text-[10px] text-emerald-700 font-normal">(Recorded on Top Nav & Receipts)</span>
+              City / Town & Location <span className="text-[10px] text-emerald-700 font-normal">(Recorded on Shop Profile & Receipts)</span>
             </label>
             <input
               type="text"
@@ -302,9 +302,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 • <strong>Features:</strong> Unlimited sales, unlimited stock catalog, daily auto-backup alerts, and the complete Flutter SQLite architecture.
               </p>
               {subStatus.isPro && (
-                <p className="text-emerald-700 font-semibold pt-1">
-                  ✓ Active Access: Expires on {subStatus.expiryDateStr} ({subStatus.daysRemaining} days remaining).
-                </p>
+                <div className="space-y-1 pt-1 border-t border-slate-200">
+                  <p className="text-emerald-700 font-semibold">
+                    ✓ Active Pro Access: Expires on {subStatus.expiryDateStr} ({subStatus.daysRemaining} days remaining).
+                  </p>
+                  <p className="text-[11px] text-emerald-800 font-medium">
+                    🔒 Persisted to Account: Bound to <strong>{business.name || 'Your Business'}</strong> ({business.ownerName || 'Merchant'}) for up to 30 days. Pro status is automatically restored whenever you open this account.
+                  </p>
+                </div>
               )}
             </div>
 
@@ -468,11 +473,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 if (isInstallable) {
                   install();
                 } else {
-                  alert(
+                  setPushFeedback(
                     isIOS
                       ? 'On iPhone/iPad: Tap the Safari Share icon and select "Add to Home Screen".'
                       : 'To install: Tap your browser menu (⋮ or ...) and select "Install SmartBiz Pocket" or "Add to Home screen".'
                   );
+                  setTimeout(() => setPushFeedback(null), 6000);
                 }
               }}
               className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
