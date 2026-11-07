@@ -72,6 +72,7 @@ export interface Sale {
   notes?: string;
   receiptNumber: string;
   isCreditSale: boolean;
+  dueDate?: string; // Date of payback for credit sales (mandatory on credit)
 }
 
 export type ExpenseCategory =
@@ -116,10 +117,12 @@ export interface Debtor {
   originalAmount: number;
   balanceOwed: number;
   date: string;
-  dueDate?: string;
+  dueDate?: string; // Date of payback
   notes?: string;
   status: 'Unpaid' | 'Partial' | 'Cleared';
   relatedSaleId?: string;
+  lastReminderSentAt?: string; // ISO date timestamp of last WhatsApp reminder sent
+  autoReminderFiredAt?: string; // Timestamp of 24h auto-fire reminder
 }
 
 export interface PaymentRecord {
@@ -166,7 +169,8 @@ export type AppNotificationType =
   | 'monthly_reports'
   | 'subscription_countdown'
   | 'subscription_renewed'
-  | 'end_of_month_backup';
+  | 'end_of_month_backup'
+  | 'debtor_payback_reminder';
 
 export interface AppNotification {
   id: string;
@@ -179,6 +183,13 @@ export interface AppNotification {
   actionLabel?: string;
   actionTab?: string;
   actionPayload?: string;
+  debtorId?: string;
+  debtorName?: string;
+  debtorPhone?: string;
+  balanceOwed?: number;
+  dueDate?: string;
+  whatsappUrl?: string;
+  reminderMessage?: string;
 }
 
 export interface AppSettings {

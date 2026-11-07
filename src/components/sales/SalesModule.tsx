@@ -19,6 +19,7 @@ import {
   Phone,
   Package,
   Zap,
+  Calendar,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { SmartBizState, Product, Sale, SaleItem, PaymentMethod, FREE_PLAN_SALES_LIMIT } from '../../types';
@@ -82,6 +83,8 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash USD');
+  const [paybackDueDate, setPaybackDueDate] = useState<string>('');
+  const [creditValidationError, setCreditValidationError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>('');
 
   // Helper for currently selected product in dropdown
@@ -269,6 +272,34 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
       });
     }
 
+    const selectedCust = customerId ? customers.find(c => c.id === customerId) : null;
+    const effectiveCustName =
+      customerName.trim() ||
+      selectedCust?.name ||
+      '';
+    const effectiveCustPhone =
+      customerPhone.trim() ||
+      selectedCust?.phone ||
+      (selectedCust as any)?.phoneNumber ||
+      '';
+
+    // Strict validation for Credit Sales
+    if (paymentMethod === 'On Credit') {
+      if (!effectiveCustName) {
+        setCreditValidationError('Customer Name is mandatory for credit sales so you can follow up.');
+        return;
+      }
+      if (!effectiveCustPhone) {
+        setCreditValidationError('Customer Phone Number is mandatory for credit sales to send WhatsApp payback reminders.');
+        return;
+      }
+      if (!paybackDueDate) {
+        setCreditValidationError('Date of Payback is mandatory for credit sales so the system can schedule payment reminders.');
+        return;
+      }
+    }
+    setCreditValidationError(null);
+
     const totalSale = finalItems.reduce((sum, item) => sum + item.totalSale, 0);
     const totalCost = finalItems.reduce((sum, item) => sum + item.unitCostPrice * item.quantity, 0);
     const profit = totalSale - totalCost;
@@ -282,14 +313,13 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
       totalCost,
       profit,
       customerId: customerId || undefined,
-      customerName:
-        customerName.trim() ||
-        (customerId ? customers.find(c => c.id === customerId)?.name : undefined),
-      customerPhone: customerPhone.trim() || undefined,
+      customerName: effectiveCustName || undefined,
+      customerPhone: effectiveCustPhone || undefined,
       paymentMethod,
       notes: notes.trim() || undefined,
       receiptNumber,
       isCreditSale: paymentMethod === 'On Credit',
+      dueDate: paymentMethod === 'On Credit' && paybackDueDate ? new Date(paybackDueDate).toISOString() : undefined,
     };
 
     onAddSale(newSale);
@@ -310,6 +340,8 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
     setCustomerId('');
     setCustomerName('');
     setCustomerPhone('');
+    setPaybackDueDate('');
+    setCreditValidationError(null);
     setPaymentMethod('Cash USD');
     onCloseQuickAdd();
   };
@@ -317,12 +349,14 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
   // Customer selection auto-fill
   const handleCustomerSelect = (cId: string) => {
     setCustomerId(cId);
+    setCreditValidationError(null);
     if (cId) {
       const cust = customers.find(c => c.id === cId);
       if (cust) {
         setCustomerName(cust.name);
-        if (cust.phoneNumber) {
-          setCustomerPhone(cust.phoneNumber);
+        const phone = cust.phone || (cust as any).phoneNumber || '';
+        if (phone) {
+          setCustomerPhone(phone);
         }
       }
     } else {
@@ -637,6 +671,29 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                   Customer & Payment
                 </span>
 
+                {/* Credit Mandatory Notice */}
+                {paymentMethod === 'On Credit' && (
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-2.5 text-xs text-amber-900 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-[11px] uppercase tracking-wider text-amber-800">
+                        Credit Sale Requirement
+                      </span>
+                      <p className="text-[11px] text-amber-800/90 leading-tight">
+                        It is recommended to give credit to someone you know their details. <strong>Customer Name</strong>, <strong>Phone Number</strong>, and <strong>Date of Payback</strong> are mandatory for proper follow-up.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Validation Error Banner */}
+                {creditValidationError && (
+                  <div className="p-2.5 rounded-xl bg-rose-600 text-white text-xs font-semibold flex items-center gap-2 shadow-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{creditValidationError}</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
@@ -650,38 +707,62 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                       <option value="">Walk-in Customer</option>
                       {customers.map(c => (
                         <option key={c.id} value={c.id}>
-                          {c.name} {c.phoneNumber ? `(${c.phoneNumber})` : ''}
+                          {c.name} {c.phone ? `(${c.phone})` : (c as any).phoneNumber ? `(${(c as any).phoneNumber})` : ''}
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
-                      Or Customer Name
+                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5 flex items-center justify-between">
+                      <span>
+                        Or Customer Name {paymentMethod === 'On Credit' && <strong className="text-rose-600">*</strong>}
+                      </span>
+                      {paymentMethod === 'On Credit' && (
+                        <span className="text-[9px] text-rose-600 font-bold uppercase">Required</span>
+                      )}
                     </label>
                     <input
                       type="text"
                       placeholder="e.g. Baba Tinashe"
                       value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
-                      className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg focus:outline-none"
+                      onChange={e => {
+                        setCustomerName(e.target.value);
+                        if (creditValidationError) setCreditValidationError(null);
+                      }}
+                      className={`w-full text-xs p-2 bg-white rounded-lg focus:outline-none ${
+                        paymentMethod === 'On Credit' && !customerName.trim() && !customerId
+                          ? 'border-2 border-rose-400 bg-rose-50/30'
+                          : 'border border-slate-200'
+                      }`}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5 flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-slate-400" />
-                      Phone (for WhatsApp receipt)
+                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3 h-3 text-slate-400" />
+                        Phone {paymentMethod === 'On Credit' && <strong className="text-rose-600">*</strong>}
+                      </span>
+                      {paymentMethod === 'On Credit' && (
+                        <span className="text-[9px] text-rose-600 font-bold uppercase">Required</span>
+                      )}
                     </label>
                     <input
                       type="tel"
                       placeholder="+263 77..."
                       value={customerPhone}
-                      onChange={e => setCustomerPhone(e.target.value)}
-                      className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg focus:outline-none"
+                      onChange={e => {
+                        setCustomerPhone(e.target.value);
+                        if (creditValidationError) setCreditValidationError(null);
+                      }}
+                      className={`w-full text-xs p-2 bg-white rounded-lg focus:outline-none ${
+                        paymentMethod === 'On Credit' && !customerPhone.trim()
+                          ? 'border-2 border-rose-400 bg-rose-50/30'
+                          : 'border border-slate-200'
+                      }`}
                     />
                   </div>
 
@@ -699,6 +780,34 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                   </div>
                 </div>
 
+                {/* Date of Payback (Mandatory on Credit) */}
+                {paymentMethod === 'On Credit' && (
+                  <div className="bg-rose-50/70 border border-rose-200 p-2.5 rounded-xl space-y-1">
+                    <label className="block text-[11px] font-bold text-rose-900 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-rose-600" />
+                        Date of Payback (Due Date) *
+                      </span>
+                      <span className="text-[9px] text-rose-700 bg-rose-200/80 px-1.5 py-0.2 rounded font-bold uppercase">
+                        Mandatory
+                      </span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={paybackDueDate}
+                      onChange={e => {
+                        setPaybackDueDate(e.target.value);
+                        if (creditValidationError) setCreditValidationError(null);
+                      }}
+                      className="w-full text-xs p-2 bg-white border border-rose-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-500 font-semibold text-rose-950"
+                    />
+                    <p className="text-[10px] text-rose-700 leading-tight">
+                      The system triggers an automated 1-tap WhatsApp reminder 24 hours (1 day) before this date at 08:00 AM.
+                    </p>
+                  </div>
+                )}
+
                 {/* Payment Method Buttons */}
                 <div>
                   <label className="block text-[11px] font-medium text-slate-600 mb-1">
@@ -709,10 +818,19 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                       <button
                         key={pm}
                         type="button"
-                        onClick={() => setPaymentMethod(pm)}
-                        className={`py-1.5 px-2 rounded-lg border text-center font-medium transition-all text-xs ${
+                        onClick={() => {
+                          setPaymentMethod(pm);
+                          setCreditValidationError(null);
+                          if (pm === 'On Credit' && !paybackDueDate) {
+                            const defaultDue = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                            setPaybackDueDate(defaultDue);
+                          }
+                        }}
+                        className={`py-1.5 px-2 rounded-lg border text-center font-medium transition-all text-xs cursor-pointer ${
                           paymentMethod === pm
-                            ? 'bg-emerald-700 border-emerald-700 text-white font-bold shadow-xs'
+                            ? pm === 'On Credit'
+                              ? 'bg-rose-600 border-rose-600 text-white font-bold shadow-xs'
+                              : 'bg-emerald-700 border-emerald-700 text-white font-bold shadow-xs'
                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                         }`}
                       >
@@ -721,9 +839,9 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                     ))}
                   </div>
                   {paymentMethod === 'On Credit' && (
-                    <p className="text-[11px] text-rose-600 mt-1 font-medium flex items-center gap-1">
+                    <p className="text-[11px] text-rose-600 mt-1.5 font-medium flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      Will automatically record in "People Who Owe Me"
+                      Will automatically record in "People Who Owe Me" with scheduled WhatsApp reminders
                     </p>
                   )}
                 </div>

@@ -14,15 +14,26 @@ import {
   ArrowDownCircle,
   Copy,
   Check,
+  ExternalLink,
+  Send,
+  Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { SmartBizState, Debtor, PaymentRecord } from '../../types';
+import {
+  cleanPhoneNumberForWhatsApp,
+  getDebtorPaybackStatus,
+  generateDebtorReminderText,
+  getDebtorWhatsAppUrl,
+  isMorningReminderWindow,
+} from '../../utils/debtorReminder';
 
 interface DebtorsModuleProps {
   state: SmartBizState;
   onAddDebtor: (debtor: Omit<Debtor, 'id' | 'status'>) => void;
   onRecordPayment: (debtorId: string, amount: number, paymentMethod: string, notes?: string) => void;
   onDeleteDebtor: (debtorId: string) => void;
+  onMarkReminderSent?: (debtorId: string) => void;
 }
 
 export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
@@ -30,6 +41,7 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
   onAddDebtor,
   onRecordPayment,
   onDeleteDebtor,
+  onMarkReminderSent,
 }) => {
   const debtors = state.debtors || [];
   const payments = state.payments || [];
@@ -52,6 +64,7 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
   const [whatsappDebtor, setWhatsappDebtor] = useState<Debtor | null>(null);
   const [language, setLanguage] = useState<'en' | 'sn'>('en');
   const [copied, setCopied] = useState(false);
+  const [quickCopiedId, setQuickCopiedId] = useState<string | null>(null);
 
   // New Debtor Form State
   const [customerName, setCustomerName] = useState('');
@@ -63,6 +76,13 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
   // Total uncollected money
   const activeDebtors = debtors.filter(d => d.balanceOwed > 0);
   const totalUncollectedDebt = activeDebtors.reduce((sum, d) => sum + d.balanceOwed, 0);
+
+  // Auto-reminder 24h & morning check: debtors due tomorrow, due today, or overdue
+  const debtorsNeedingReminder = activeDebtors.filter(d => {
+    if (!d.dueDate) return false;
+    const status = getDebtorPaybackStatus(d);
+    return status.isDueTomorrow || status.isDueToday || (status.isOverdue && Math.abs(status.daysRemaining) <= 14);
+  });
 
   // Filtered debtors
   const filteredDebtors = debtors.filter(d => {
@@ -81,12 +101,24 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
     return matchesSearch && matchesStatus;
   });
 
-  // Handle Add Debtor
+  // Handle Add Debtor with mandatory name, phone, amount, and payback date
   const handleSaveDebtor = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(amountOwed);
-    if (!customerName.trim() || !amount || amount <= 0) {
-      alert('Please enter a customer name and valid amount owed');
+    if (!customerName.trim()) {
+      alert('Customer Name is mandatory for credit sales to allow follow-up.');
+      return;
+    }
+    if (!phoneNumber.trim()) {
+      alert('Phone Number is mandatory for credit sales to send WhatsApp payback reminders.');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      alert('Please enter a valid amount owed.');
+      return;
+    }
+    if (!dueDate) {
+      alert('Date of Payback is mandatory for credit sales so the system can schedule payment reminders.');
       return;
     }
 
@@ -96,7 +128,7 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
       originalAmount: amount,
       balanceOwed: amount,
       date: new Date().toISOString(),
-      dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+      dueDate: new Date(dueDate).toISOString(),
       notes: notes.trim() || undefined,
     });
 
@@ -132,12 +164,9 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
     setPaymentNote('');
   };
 
-  // Generate WhatsApp text
+  // Generate WhatsApp text with courteous date context
   const getWhatsAppMessage = (debtor: Debtor) => {
-    if (language === 'sn') {
-      return `Makadii ${debtor.customerName}. Tinokutendai nekutsigira ${business.name}. Tinokukumbirawo kubhadhara chikwereti chenyu che ${currency}${debtor.balanceOwed.toFixed(2)}. Maita basa zvikuru!`;
-    }
-    return `Hello ${debtor.customerName}, friendly reminder from ${business.name} regarding your outstanding balance of ${currency}${debtor.balanceOwed.toFixed(2)}. You can settle via Cash or EcoCash. Thank you for your support!`;
+    return generateDebtorReminderText(debtor, business.name, currency, language);
   };
 
   const handleCopyMessage = (text: string) => {
@@ -162,6 +191,103 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
           <span>+ Add Credit</span>
         </button>
       </div>
+
+      {/* 24-Hour Payback WhatsApp Auto-Reminders Hub (User Request 1) */}
+      {debtorsNeedingReminder.length > 0 && (
+        <div className="bg-gradient-to-br from-emerald-900 via-teal-900 to-slate-900 text-white p-3.5 rounded-2xl shadow-lg border border-emerald-500/40 space-y-2.5 animate-in fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300">
+                <MessageSquare className="w-4 h-4 fill-emerald-300/30" />
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5">
+                  <span>24-Hour Payback WhatsApp Reminders</span>
+                  <span className="bg-emerald-400 text-slate-950 text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                    {debtorsNeedingReminder.length} Due
+                  </span>
+                </h3>
+                <p className="text-[10px] text-emerald-200">
+                  Morning reminders (08:00 AM) — 1-tap fire directly to customer WhatsApp
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {debtorsNeedingReminder.map(debtor => {
+              const status = getDebtorPaybackStatus(debtor);
+              const waUrl = getDebtorWhatsAppUrl(debtor, business.name, currency);
+              const messageText = generateDebtorReminderText(debtor, business.name, currency);
+              const isCopied = quickCopiedId === debtor.id;
+
+              return (
+                <div
+                  key={debtor.id}
+                  className="bg-white/10 backdrop-blur-xs border border-white/10 rounded-xl p-2.5 flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-xs text-white truncate">{debtor.customerName}</span>
+                      <span className="text-[10px] text-emerald-300 font-mono">({debtor.phoneNumber})</span>
+                      <span
+                        className={`text-[9px] px-1.5 py-0.2 rounded font-black ${
+                          status.isDueToday
+                            ? 'bg-rose-500 text-white animate-pulse'
+                            : status.isDueTomorrow
+                            ? 'bg-amber-400 text-slate-950 font-bold'
+                            : 'bg-emerald-500 text-slate-950 font-bold'
+                        }`}
+                      >
+                        {status.isDueTomorrow
+                          ? '⏰ Due Tomorrow (24h)'
+                          : status.isDueToday
+                          ? '🚨 Due Today'
+                          : status.statusBadgeText}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-200 mt-0.5">
+                      Owes: <strong className="text-amber-300">{currency}{debtor.balanceOwed.toFixed(2)}</strong> • Payback: {status.formattedDueDate}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {debtor.phoneNumber && (
+                      <a
+                        href={waUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          if (onMarkReminderSent) onMarkReminderSent(debtor.id);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 transition-all"
+                        title="Send 1-tap reminder directly to customer WhatsApp"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 fill-slate-950" />
+                        <span>Auto-Fire WhatsApp</span>
+                      </a>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(messageText);
+                        setQuickCopiedId(debtor.id);
+                        setTimeout(() => setQuickCopiedId(null), 2000);
+                      }}
+                      className="px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Copy reminder text to clipboard"
+                    >
+                      {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{isCopied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Outstanding Total Banner ("Money on the street") */}
       <div className="bg-gradient-to-r from-rose-600 to-red-700 text-white p-4 rounded-xl shadow-md">
@@ -254,6 +380,10 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
             const daysAgo = Math.floor(
               (Date.now() - new Date(debtor.date).getTime()) / (1000 * 3600 * 24)
             );
+            const paybackStatus = getDebtorPaybackStatus(debtor);
+            const waUrl = getDebtorWhatsAppUrl(debtor, business.name, currency);
+            const reminderText = generateDebtorReminderText(debtor, business.name, currency);
+            const isQuickCopied = quickCopiedId === debtor.id;
 
             return (
               <div
@@ -262,7 +392,7 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <h4 className="text-sm font-bold text-slate-900">{debtor.customerName}</h4>
                       <span
                         className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
@@ -278,7 +408,7 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
                     </div>
 
                     {debtor.phoneNumber && (
-                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5 font-mono">
                         <Phone className="w-3 h-3 text-slate-400" />
                         {debtor.phoneNumber}
                       </p>
@@ -288,10 +418,37 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
                       <p className="text-xs text-slate-600 mt-1 italic">"{debtor.notes}"</p>
                     )}
 
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Given: {new Date(debtor.date).toLocaleDateString()} ({daysAgo} days ago)
-                      {debtor.dueDate && ` • Promised: ${new Date(debtor.dueDate).toLocaleDateString()}`}
-                    </p>
+                    <div className="text-[10px] text-slate-400 mt-1 space-y-0.5">
+                      <p>Given: {new Date(debtor.date).toLocaleDateString()} ({daysAgo} days ago)</p>
+                      {paybackStatus.hasDueDate && (
+                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                          <span
+                            className={`px-1.5 py-0.2 rounded font-bold flex items-center gap-1 text-[10px] ${
+                              paybackStatus.isDueToday
+                                ? 'bg-rose-600 text-white animate-pulse'
+                                : paybackStatus.isDueTomorrow
+                                ? 'bg-amber-400 text-slate-950 font-extrabold'
+                                : paybackStatus.isOverdue
+                                ? 'bg-red-100 text-red-800 font-semibold'
+                                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            }`}
+                          >
+                            <Clock className="w-3 h-3" />
+                            {paybackStatus.statusBadgeText} ({paybackStatus.formattedDueDate})
+                          </span>
+                          {debtor.lastReminderSentAt && (
+                            <span className="text-slate-400">
+                              • Last WhatsApp: {new Date(debtor.lastReminderSentAt).toLocaleDateString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="text-right shrink-0">
@@ -311,14 +468,14 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
 
                 {/* Quick Action Buttons */}
                 {!isCleared && (
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100 flex-wrap">
                     {/* Record Payment Button */}
                     <button
                       onClick={() => {
                         setActivePayingDebtor(debtor);
                         setPaymentAmount(debtor.balanceOwed.toString());
                       }}
-                      className="py-1.5 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-xs"
+                      className="py-1.5 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-xs cursor-pointer"
                     >
                       <ArrowDownCircle className="w-3.5 h-3.5" />
                       <span>Record Payment</span>
@@ -327,10 +484,41 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
                     {/* WhatsApp Reminder Button */}
                     <button
                       onClick={() => setWhatsappDebtor(debtor)}
-                      className="py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center justify-center gap-1"
+                      className="py-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>WhatsApp Reminder</span>
+                      <span>Reminder Modal</span>
+                    </button>
+
+                    {/* 1-Tap WhatsApp Button */}
+                    {debtor.phoneNumber && (
+                      <a
+                        href={waUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          if (onMarkReminderSent) onMarkReminderSent(debtor.id);
+                        }}
+                        className="py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-xs cursor-pointer ml-auto"
+                        title="Send 1-tap WhatsApp message via wa.me"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>1-Tap WhatsApp</span>
+                      </a>
+                    )}
+
+                    {/* Quick Copy Message Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(reminderText);
+                        setQuickCopiedId(debtor.id);
+                        setTimeout(() => setQuickCopiedId(null), 2000);
+                      }}
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Copy reminder text"
+                    >
+                      {isQuickCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 )}
@@ -506,15 +694,16 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
 
               {whatsappDebtor.phoneNumber && (
                 <a
-                  href={`https://wa.me/${whatsappDebtor.phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                    getWhatsAppMessage(whatsappDebtor)
-                  )}`}
+                  href={getDebtorWhatsAppUrl(whatsappDebtor, business.name, currency, language)}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
+                  onClick={() => {
+                    if (onMarkReminderSent) onMarkReminderSent(whatsappDebtor.id);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  <span>Open Directly in WhatsApp</span>
+                  <span>Open Directly in WhatsApp (wa.me)</span>
                 </a>
               )}
             </div>
@@ -529,7 +718,7 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
               <div>
                 <h3 className="font-bold text-slate-800 text-base">Add Person Who Owes</h3>
-                <p className="text-[11px] text-slate-500">Record credit taken by a customer</p>
+                <p className="text-[11px] text-slate-500">Record credit taken by a customer with mandatory follow-up details</p>
               </div>
               <button
                 onClick={() => setIsAddOpen(false)}
@@ -557,10 +746,11 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Phone Number
+                    Phone Number *
                   </label>
                   <input
                     type="tel"
+                    required
                     placeholder="+263 77 123 4567"
                     value={phoneNumber}
                     onChange={e => setPhoneNumber(e.target.value)}
@@ -584,15 +774,20 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Promised Pay Date (Optional)
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Date of Payback (Due Date) *</span>
+                  <span className="text-[10px] text-rose-600 font-bold uppercase">Required</span>
                 </label>
                 <input
                   type="date"
+                  required
                   value={dueDate}
                   onChange={e => setDueDate(e.target.value)}
-                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none font-semibold text-rose-950"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  The system will automatically schedule a 24-hr reminder at 08:00 AM before this payback date.
+                </p>
               </div>
 
               <div>

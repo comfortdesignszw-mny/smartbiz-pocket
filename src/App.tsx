@@ -91,7 +91,7 @@ export default function App() {
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
   const [simulatedNotifType, setSimulatedNotifType] = useState<
-    'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_0' | undefined
+    'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_0' | 'debtor_payback' | undefined
   >(undefined);
 
   // Quick action modal open states for fast 1-tap from dashboard
@@ -222,7 +222,8 @@ export default function App() {
           originalAmount: fullSale.totalSale,
           balanceOwed: fullSale.totalSale,
           date: fullSale.date,
-          notes: `Credit purchase: ${fullSale.items.map(i => `${i.productName} (x${i.quantity})`).join(', ')}`,
+          dueDate: fullSale.dueDate,
+          notes: fullSale.notes || `Credit purchase: ${fullSale.items.map(i => `${i.productName} (x${i.quantity})`).join(', ')}`,
           status: 'Unpaid',
           relatedSaleId: saleId,
         });
@@ -407,6 +408,20 @@ export default function App() {
     setState(prev => ({
       ...prev,
       debtors: prev.debtors.filter(d => d.id !== debtorId),
+    }));
+  };
+
+  const handleMarkDebtorReminderSent = (debtorId: string) => {
+    setState(prev => ({
+      ...prev,
+      debtors: prev.debtors.map(d =>
+        d.id === debtorId
+          ? {
+              ...d,
+              lastReminderSentAt: new Date().toISOString(),
+            }
+          : d
+      ),
     }));
   };
 
@@ -670,6 +685,14 @@ export default function App() {
       downloadMonthlyReportCsv(state);
     } else if (notification.type === 'end_of_month_backup' || notification.actionPayload === 'download_json_backup' || notification.actionTab === 'backup') {
       downloadJsonBackup(state);
+    } else if (notification.type === 'debtor_payback_reminder') {
+      if (notification.debtorId) {
+        handleMarkDebtorReminderSent(notification.debtorId);
+      }
+      if (notification.whatsappUrl) {
+        window.open(notification.whatsappUrl, '_blank', 'noopener,noreferrer');
+      }
+      setActiveTab('debtors');
     }
   };
 
@@ -836,6 +859,7 @@ export default function App() {
               onAddDebtor={handleAddDebtor}
               onRecordPayment={handleRecordPayment}
               onDeleteDebtor={handleDeleteDebtor}
+              onMarkReminderSent={handleMarkDebtorReminderSent}
             />
           )}
 

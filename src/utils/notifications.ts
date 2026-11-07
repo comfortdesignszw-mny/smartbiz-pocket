@@ -1,4 +1,10 @@
 import { SmartBizState, AppSettings, AppNotification } from '../types';
+import {
+  getDebtorPaybackStatus,
+  generateDebtorReminderText,
+  getDebtorWhatsAppUrl,
+  isMorningReminderWindow,
+} from './debtorReminder';
 
 /**
  * Returns ISO week string for weekly reminder deduplication (e.g. "2026-W38")
@@ -180,7 +186,7 @@ export function downloadMonthlyReportCsv(state: SmartBizState): string {
 export function evaluateSystemNotifications(
   state: SmartBizState,
   options?: {
-    forceSimulate?: 'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_0';
+    forceSimulate?: 'end_of_day' | 'monthly_report' | 'backup' | 'countdown_10' | 'countdown_2' | 'countdown_0' | 'debtor_payback';
   }
 ): AppNotification[] {
   const notifications: AppNotification[] = [];
@@ -306,6 +312,100 @@ export function evaluateSystemNotifications(
       priority: 'high',
       actionLabel: 'Download JSON Backup',
       actionTab: 'backup',
+    });
+  }
+
+  // 5. Debtors Payback Date Reminder Notification (24hrs / 1 day before payback, especially in the morning at 0800hrs, or on due date)
+  const isDebtorSimulation = options?.forceSimulate === 'debtor_payback';
+  const currencySym = state.settings?.currencySymbol || '$';
+  const debtorsList = state.debtors || [];
+  const activeDebtors = debtorsList.filter(d => d && (d.balanceOwed || 0) > 0);
+
+  // Check each active debtor with a payback due date
+  activeDebtors.forEach(debtor => {
+    const status = getDebtorPaybackStatus(debtor, now);
+    if (!status.hasDueDate && !isDebtorSimulation) return;
+
+    // Trigger if:
+    // a) Payback is due tomorrow (24hrs before)
+    // b) Payback is due today
+    // c) Payback is overdue
+    // Typically in the morning (>= 08:00) or anytime on the trigger day
+    const shouldTriggerReminder =
+      status.isDueTomorrow ||
+      status.isDueToday ||
+      (status.isOverdue && Math.abs(status.daysRemaining) <= 14);
+
+    if (shouldTriggerReminder || isDebtorSimulation) {
+      const isDueToday = status.isDueToday;
+      const isDueTomorrow = status.isDueTomorrow;
+      const isOverdue = status.isOverdue;
+
+      let title = `Payback Reminder: ${debtor.customerName}`;
+      if (isDueTomorrow) {
+        title = `Payback Due Tomorrow (24h Alert): ${debtor.customerName}`;
+      } else if (isDueToday) {
+        title = `Payback Due Today: ${debtor.customerName}`;
+      } else if (isOverdue) {
+        title = `Credit Overdue: ${debtor.customerName}`;
+      }
+
+      const cleanPhone = debtor.phoneNumber ? ` (${debtor.phoneNumber})` : '';
+      const message = `${debtor.customerName}${cleanPhone} owes ${currencySym}${debtor.balanceOwed.toFixed(2)}, scheduled for payback ${
+        isDueTomorrow ? 'tomorrow' : isDueToday ? 'today' : `on ${status.formattedDueDate}`
+      }. Send their 1-tap WhatsApp reminder now.`;
+
+      notifications.push({
+        id: `debtor-reminder-${debtor.id}-${now.toISOString().slice(0, 10)}`,
+        type: 'debtor_payback_reminder',
+        title,
+        message,
+        createdAt: now.toISOString(),
+        priority: isDueToday || isOverdue ? 'critical' : 'high',
+        actionLabel: 'Send WhatsApp Reminder',
+        actionTab: 'debtors',
+        actionPayload: debtor.id,
+        debtorId: debtor.id,
+        debtorName: debtor.customerName,
+        debtorPhone: debtor.phoneNumber,
+        balanceOwed: debtor.balanceOwed,
+        dueDate: debtor.dueDate,
+        whatsappUrl: getDebtorWhatsAppUrl(debtor, state.business?.name || 'SmartBiz Store', currencySym),
+        reminderMessage: generateDebtorReminderText(debtor, state.business?.name || 'SmartBiz Store', currencySym),
+      });
+    }
+  });
+
+  // If simulation is requested but no debtor triggered, add a mock demonstration reminder
+  if (isDebtorSimulation && !notifications.some(n => n.type === 'debtor_payback_reminder')) {
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const mockDebtor = {
+      id: 'demo-debtor-sim',
+      customerName: 'Baba Tinashe',
+      phoneNumber: '+263772824132',
+      originalAmount: 45.0,
+      balanceOwed: 45.0,
+      date: now.toISOString(),
+      dueDate: tomorrow.toISOString(),
+      status: 'Unpaid' as const,
+    };
+    notifications.push({
+      id: `debtor-reminder-sim-${now.toISOString().slice(0, 10)}`,
+      type: 'debtor_payback_reminder',
+      title: 'Payback Due Tomorrow (24h Alert): Baba Tinashe',
+      message: `Baba Tinashe (+263772824132) owes ${currencySym}45.00, scheduled for payback tomorrow at 08:00 AM. Send their 1-tap WhatsApp reminder now.`,
+      createdAt: now.toISOString(),
+      priority: 'high',
+      actionLabel: 'Send WhatsApp Reminder',
+      actionTab: 'debtors',
+      actionPayload: mockDebtor.id,
+      debtorId: mockDebtor.id,
+      debtorName: mockDebtor.customerName,
+      debtorPhone: mockDebtor.phoneNumber,
+      balanceOwed: mockDebtor.balanceOwed,
+      dueDate: mockDebtor.dueDate,
+      whatsappUrl: getDebtorWhatsAppUrl(mockDebtor, state.business?.name || 'SmartBiz Store', currencySym),
+      reminderMessage: generateDebtorReminderText(mockDebtor, state.business?.name || 'SmartBiz Store', currencySym),
     });
   }
 
