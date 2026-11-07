@@ -30,6 +30,7 @@ export type TabType =
   | 'debtors'
   | 'customers'
   | 'reports'
+  | 'performance'
   | 'insights'
   | 'backup'
   | 'settings'
@@ -74,7 +75,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   subscriptionDaysRemaining = 0,
   isProExpired = false,
 }) => {
-  const isMoreActive = ['customers', 'reports', 'insights', 'backup', 'settings', 'flutter'].includes(activeTab);
+  const isMoreActive = ['customers', 'reports', 'performance', 'insights', 'backup', 'settings', 'flutter'].includes(activeTab);
 
   return (
     <>

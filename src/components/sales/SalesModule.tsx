@@ -72,7 +72,14 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
   const [copiedReceipt, setCopiedReceipt] = useState(false);
 
-  // New Multi-Item Sale Form State
+  // Direct Sale (Amount & Description) State
+  const [entryMode, setEntryMode] = useState<'direct' | 'catalog'>('direct');
+  const [directSaleAmount, setDirectSaleAmount] = useState<string>('');
+  const [directSaleDescription, setDirectSaleDescription] = useState<string>('');
+  const [directSaleQuantity, setDirectSaleQuantity] = useState<number>(1);
+  const [directSaleCostPrice, setDirectSaleCostPrice] = useState<string>('');
+
+  // Multi-Item Catalog Sale Form State
   const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?.id || '');
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [customItemPrice, setCustomItemPrice] = useState<string>('');
@@ -166,7 +173,35 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
     window.open(whatsappUrl, '_blank');
   };
 
-  // Add item to multi-item cart
+  // Add direct item (custom amount & description) to basket
+  const handleAddDirectItem = () => {
+    const amt = parseFloat(directSaleAmount);
+    if (isNaN(amt) || amt <= 0) {
+      alert('Please enter a valid sales amount.');
+      return;
+    }
+    const desc = directSaleDescription.trim() || 'General Sale / Service';
+    const qty = directSaleQuantity > 0 ? directSaleQuantity : 1;
+    const cost = parseFloat(directSaleCostPrice) || 0;
+    const newItem: SaleItem = {
+      id: 'item-direct-' + Date.now() + Math.random().toString(36).substr(2, 4),
+      productId: 'direct-' + Date.now(),
+      productName: desc,
+      itemType: 'service',
+      quantity: qty,
+      unitCostPrice: cost,
+      unitSellingPrice: amt,
+      totalSale: amt * qty,
+      profit: (amt - cost) * qty,
+    };
+    setCartItems(prev => [...prev, newItem]);
+    setDirectSaleAmount('');
+    setDirectSaleDescription('');
+    setDirectSaleQuantity(1);
+    setDirectSaleCostPrice('');
+  };
+
+  // Add item to multi-item cart from catalog
   const handleAddToCart = () => {
     if (!selectedProduct) {
       alert('Please choose a product to add to the sale.');
@@ -251,25 +286,42 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
 
     let finalItems = [...cartItems];
 
-    // If user has not explicitly pressed "+ Add Item" but has an item in picker, include it
+    // If user has not added items to the cart but entered direct sale amount/description
+    const directAmt = parseFloat(directSaleAmount);
     if (finalItems.length === 0) {
-      if (!selectedProduct) {
-        alert('Please select at least one product for this sale.');
+      if (!isNaN(directAmt) && directAmt > 0) {
+        const desc = directSaleDescription.trim() || 'General Sale / Service';
+        const qty = directSaleQuantity > 0 ? directSaleQuantity : 1;
+        const cost = parseFloat(directSaleCostPrice) || 0;
+        finalItems.push({
+          id: 'item-direct-' + Date.now(),
+          productId: 'direct-' + Date.now(),
+          productName: desc,
+          itemType: 'service',
+          quantity: qty,
+          unitCostPrice: cost,
+          unitSellingPrice: directAmt,
+          totalSale: directAmt * qty,
+          profit: (directAmt - cost) * qty,
+        });
+      } else if (selectedProduct) {
+        finalItems.push({
+          id: 'item-' + Date.now(),
+          productId: selectedProduct.id,
+          productName: selectedProduct.name,
+          itemType: selectedProduct.itemType || 'product',
+          servicePeriod: selectedProduct.servicePeriod,
+          quantity: itemQuantity,
+          unitCostPrice: effectivePickerCost,
+          unitSellingPrice: effectivePickerPrice,
+          totalSale: pickerItemTotal,
+          profit: pickerItemProfit,
+          imageUrl: selectedProduct.imageUrl,
+        });
+      } else {
+        alert('Please enter a sale amount or select a product from inventory.');
         return;
       }
-      finalItems.push({
-        id: 'item-' + Date.now(),
-        productId: selectedProduct.id,
-        productName: selectedProduct.name,
-        itemType: selectedProduct.itemType || 'product',
-        servicePeriod: selectedProduct.servicePeriod,
-        quantity: itemQuantity,
-        unitCostPrice: effectivePickerCost,
-        unitSellingPrice: effectivePickerPrice,
-        totalSale: pickerItemTotal,
-        profit: pickerItemProfit,
-        imageUrl: selectedProduct.imageUrl,
-      });
     }
 
     const selectedCust = customerId ? customers.find(c => c.id === customerId) : null;
@@ -336,6 +388,10 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
     setCartItems([]);
     setItemQuantity(1);
     setCustomItemPrice('');
+    setDirectSaleAmount('');
+    setDirectSaleDescription('');
+    setDirectSaleQuantity(1);
+    setDirectSaleCostPrice('');
     setNotes('');
     setCustomerId('');
     setCustomerName('');
@@ -490,7 +546,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
 
         {/* Payment Method Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-          {['All', 'Cash USD', 'EcoCash', 'ZiG Cash', 'On Credit'].map(m => (
+          {['All', 'Cash USD', 'EcoCash', 'ZiG Cash', 'ZAR (SA Rands)', 'Bank Card', 'On Credit'].map(m => (
             <button
               key={m}
               onClick={() => setSelectedPaymentFilter(m)}
@@ -813,8 +869,8 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                   <label className="block text-[11px] font-medium text-slate-600 mb-1">
                     Payment Method *
                   </label>
-                  <div className="grid grid-cols-4 gap-1.5 text-xs">
-                    {(['Cash USD', 'EcoCash', 'ZiG Cash', 'On Credit'] as PaymentMethod[]).map(pm => (
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 text-xs">
+                    {(['Cash USD', 'EcoCash', 'ZiG Cash', 'ZAR (SA Rands)', 'Bank Card', 'On Credit'] as PaymentMethod[]).map(pm => (
                       <button
                         key={pm}
                         type="button"
@@ -826,7 +882,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                             setPaybackDueDate(defaultDue);
                           }
                         }}
-                        className={`py-1.5 px-2 rounded-lg border text-center font-medium transition-all text-xs cursor-pointer ${
+                        className={`py-1.5 px-1.5 rounded-lg border text-center font-medium transition-all text-[11px] cursor-pointer ${
                           paymentMethod === pm
                             ? pm === 'On Credit'
                               ? 'bg-rose-600 border-rose-600 text-white font-bold shadow-xs'
@@ -952,182 +1008,317 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
                 </div>
               )}
 
-              {/* ADD PRODUCT TO BASKET SECTION */}
-              {/* Empty catalog notice or Add Product section */}
-              {products.length === 0 ? (
-                <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-4 text-center space-y-2">
-                  <Package className="w-8 h-8 text-amber-600 mx-auto" />
-                  <p className="text-xs font-bold text-slate-800">Your product catalog is empty</p>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    You need to add products or services to your catalog before you can record sales.
-                  </p>
-                  {onOpenAddProduct && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onCloseQuickAdd();
-                        onOpenAddProduct();
-                      }}
-                      className="mt-1 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add First Product / Service</span>
-                    </button>
-                  )}
+              {/* ITEM ENTRY SELECTOR: DIRECT AMOUNT & DESCRIPTION OR INVENTORY CATALOG */}
+              <div className="space-y-3">
+                {/* Mode Selector Tabs */}
+                <div className="flex bg-slate-100 p-1 rounded-xl gap-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setEntryMode('direct')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      entryMode === 'direct'
+                        ? 'bg-white text-emerald-800 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Direct Amount & Description</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEntryMode('catalog')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      entryMode === 'catalog'
+                        ? 'bg-white text-emerald-800 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Package className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Inventory Catalog ({products.length})</span>
+                  </button>
                 </div>
-              ) : (
-                /* ADD PRODUCT TO BASKET SECTION */
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    {cartItems.length === 0 ? 'Select Item or Service' : '+ Add Another Item to Sale'}
-                  </span>
 
-                  {/* Product Dropdown */}
-                  <div className="space-y-2">
-                    <select
-                      value={selectedProductId}
-                      onChange={e => {
-                        setSelectedProductId(e.target.value);
-                        setCustomItemPrice('');
-                      }}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-medium"
-                    >
-                      {products.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.itemType === 'service'
-                            ? `⚡ [Service] ${p.name} — ${currency}${p.sellingPrice.toFixed(2)} (${p.servicePeriod || 'service'})`
-                            : `📦 ${p.name} — ${currency}${p.sellingPrice.toFixed(2)} (In stock: ${p.quantity} ${p.unit}s)`}
-                        </option>
-                      ))}
-                    </select>
+                {/* 1. DIRECT AMOUNT & DESCRIPTION ENTRY */}
+                {entryMode === 'direct' && (
+                  <div className="bg-emerald-50/40 p-3.5 rounded-xl border border-emerald-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1">
+                        <Zap className="w-3.5 h-3.5 text-emerald-700" />
+                        Quick Sale Entry
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        Instant sale without inventory lookup
+                      </span>
+                    </div>
 
-                    {/* Selected Product Visual Preview Card */}
-                    {selectedProduct && (
-                      <div className="flex items-center gap-2.5 p-2 bg-white rounded-lg border border-slate-200/80 shadow-2xs">
-                        {selectedProduct.imageUrl ? (
-                          <img
-                            src={selectedProduct.imageUrl}
-                            alt={selectedProduct.name}
-                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
-                            referrerPolicy="no-referrer"
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="sm:col-span-1">
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Sale Amount ({currency}) *
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">
+                            {currency}
+                          </span>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0.01"
+                            placeholder="0.00"
+                            value={directSaleAmount}
+                            onChange={e => setDirectSaleAmount(e.target.value)}
+                            className="w-full text-xs pl-7 pr-2.5 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-bold text-slate-900"
                           />
-                        ) : (
-                          <div
-                            className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
-                              selectedProduct.itemType === 'service'
-                                ? 'bg-indigo-50 text-indigo-600 border-indigo-100'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                            }`}
-                          >
-                            {selectedProduct.itemType === 'service' ? (
-                              <Zap className="w-5 h-5" />
-                            ) : (
-                              <Package className="w-5 h-5" />
-                            )}
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold text-slate-900 truncate">
-                            {selectedProduct.name}
-                          </div>
-                          <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-                            <span className="font-semibold text-emerald-700">
-                              {currency}{selectedProduct.sellingPrice.toFixed(2)}
-                            </span>
-                            <span>•</span>
-                            <span>
-                              {selectedProduct.itemType === 'service'
-                                ? selectedProduct.servicePeriod || 'per session'
-                                : `${selectedProduct.quantity} ${selectedProduct.unit}s in stock`}
-                            </span>
-                          </div>
                         </div>
                       </div>
-                    )}
-                  </div>
 
-                  {/* Quantity & Unit Price */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
-                        {selectedProduct?.itemType === 'service'
-                          ? `Units / ${selectedProduct.servicePeriod || 'Periods'}`
-                          : 'Quantity'}
-                      </label>
-                      <div className="flex items-center border border-slate-200 rounded-lg bg-white">
-                        <button
-                          type="button"
-                          onClick={() => setItemQuantity(prev => Math.max(1, prev - 1))}
-                          className="w-9 h-8 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 rounded-l-lg"
-                        >
-                          -
-                        </button>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Name of Product/Service or Sale Description *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Braids styling, Phone screen repair, 2x Cold Cokes"
+                          value={directSaleDescription}
+                          onChange={e => setDirectSaleDescription(e.target.value)}
+                          className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900 font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 items-end">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Quantity
+                        </label>
                         <input
                           type="number"
                           min="1"
-                          value={itemQuantity}
-                          onChange={e => setItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-full text-center text-xs font-bold bg-transparent focus:outline-none"
+                          value={directSaleQuantity}
+                          onChange={e => setDirectSaleQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Cost Price ({currency}) <span className="text-[10px] text-slate-400">(Optional)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          placeholder="0.00"
+                          value={directSaleCostPrice}
+                          onChange={e => setDirectSaleCostPrice(e.target.value)}
+                          className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                        />
+                      </div>
+
+                      <div className="col-span-2 sm:col-span-1">
                         <button
                           type="button"
-                          onClick={() => setItemQuantity(prev => prev + 1)}
-                          className="w-9 h-8 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 rounded-r-lg"
+                          onClick={handleAddDirectItem}
+                          className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                         >
-                          +
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Add to Basket</span>
                         </button>
                       </div>
                     </div>
-
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
-                        Unit Price ({currency})
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder={`${selectedProduct?.sellingPrice.toFixed(2) || '0.00'}`}
-                        value={customItemPrice}
-                        onChange={e => setCustomItemPrice(e.target.value)}
-                        className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-medium h-8"
-                      />
-                    </div>
                   </div>
+                )}
 
-                  {/* Add to Sale Basket Button */}
-                  <button
-                    type="button"
-                    onClick={handleAddToCart}
-                    className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>
-                      Add to Sale Basket ({currency}{pickerItemTotal.toFixed(2)})
-                    </span>
-                  </button>
-                </div>
-              )}
+                {/* 2. INVENTORY CATALOG PICKER */}
+                {entryMode === 'catalog' && (
+                  <>
+                    {products.length === 0 ? (
+                      <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-4 text-center space-y-2">
+                        <Package className="w-8 h-8 text-amber-600 mx-auto" />
+                        <p className="text-xs font-bold text-slate-800">Your product catalog is empty</p>
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          You can switch to "Direct Amount & Description" above to make instant sales, or add items to your catalog.
+                        </p>
+                        <div className="flex items-center justify-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setEntryMode('direct')}
+                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+                          >
+                            Use Direct Amount Entry
+                          </button>
+                          {onOpenAddProduct && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onCloseQuickAdd();
+                                onOpenAddProduct();
+                              }}
+                              className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+                            >
+                              Add First Product
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                          {cartItems.length === 0 ? 'Select Item or Service' : '+ Add Another Item to Sale'}
+                        </span>
+
+                        {/* Product Dropdown */}
+                        <div className="space-y-2">
+                          <select
+                            value={selectedProductId}
+                            onChange={e => {
+                              setSelectedProductId(e.target.value);
+                              setCustomItemPrice('');
+                            }}
+                            className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-medium"
+                          >
+                            {products.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.itemType === 'service'
+                                  ? `⚡ [Service] ${p.name} — ${currency}${p.sellingPrice.toFixed(2)} (${p.servicePeriod || 'service'})`
+                                  : `📦 ${p.name} — ${currency}${p.sellingPrice.toFixed(2)} (In stock: ${p.quantity} ${p.unit}s)`}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Selected Product Visual Preview Card */}
+                          {selectedProduct && (
+                            <div className="flex items-center gap-2.5 p-2 bg-white rounded-lg border border-slate-200/80 shadow-2xs">
+                              {selectedProduct.imageUrl ? (
+                                <img
+                                  src={selectedProduct.imageUrl}
+                                  alt={selectedProduct.name}
+                                  className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div
+                                  className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
+                                    selectedProduct.itemType === 'service'
+                                      ? 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                      : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                  }`}
+                                >
+                                  {selectedProduct.itemType === 'service' ? (
+                                    <Zap className="w-5 h-5" />
+                                  ) : (
+                                    <Package className="w-5 h-5" />
+                                  )}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-bold text-slate-900 truncate">
+                                  {selectedProduct.name}
+                                </div>
+                                <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                  <span className="font-semibold text-emerald-700">
+                                    {currency}{selectedProduct.sellingPrice.toFixed(2)}
+                                  </span>
+                                  <span>•</span>
+                                  <span>
+                                    {selectedProduct.itemType === 'service'
+                                      ? selectedProduct.servicePeriod || 'per session'
+                                      : `${selectedProduct.quantity} ${selectedProduct.unit}s in stock`}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Quantity & Unit Price */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
+                              {selectedProduct?.itemType === 'service'
+                                ? `Units / ${selectedProduct.servicePeriod || 'Periods'}`
+                                : 'Quantity'}
+                            </label>
+                            <div className="flex items-center border border-slate-200 rounded-lg bg-white">
+                              <button
+                                type="button"
+                                onClick={() => setItemQuantity(prev => Math.max(1, prev - 1))}
+                                className="w-9 h-8 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 rounded-l-lg"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                value={itemQuantity}
+                                onChange={e => setItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-full text-center text-xs font-bold bg-transparent focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setItemQuantity(prev => prev + 1)}
+                                className="w-9 h-8 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 rounded-r-lg"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
+                              Unit Price ({currency})
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder={`${selectedProduct?.sellingPrice.toFixed(2) || '0.00'}`}
+                              value={customItemPrice}
+                              onChange={e => setCustomItemPrice(e.target.value)}
+                              className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-medium h-8"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Add to Sale Basket Button */}
+                        <button
+                          type="button"
+                          onClick={handleAddToCart}
+                          className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>
+                            Add to Sale Basket ({currency}{pickerItemTotal.toFixed(2)})
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
 
               {/* Action Buttons: Final Complete */}
-              {products.length > 0 && (
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handleCompleteSale}
-                    className="w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>
-                      Complete Sale — {currency}
-                      {(
-                        cartTotalAmount +
-                        (cartItems.length === 0 ? pickerItemTotal : 0)
-                      ).toFixed(2)}{' '}
-                      ({cartItems.length > 0 ? `${cartTotalUnits} items` : `${itemQuantity} item`})
-                    </span>
-                  </button>
-                </div>
-              )}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleCompleteSale}
+                  className="w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>
+                    Complete Sale — {currency}
+                    {(
+                      cartTotalAmount > 0
+                        ? cartTotalAmount
+                        : directSaleAmount && parseFloat(directSaleAmount) > 0
+                        ? (parseFloat(directSaleAmount) || 0) * (directSaleQuantity || 1)
+                        : selectedProduct
+                        ? pickerItemTotal
+                        : 0
+                    ).toFixed(2)}{' '}
+                    ({cartItems.length > 0 ? `${cartTotalUnits} items in basket` : '1 sale item'})
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1220,14 +1411,7 @@ export const SalesModule: React.FC<SalesModuleProps> = ({
               </span>
             </div>
 
-            {/* Owner Profit Indicator */}
-            <div className="py-1.5 text-center bg-emerald-50 rounded-lg my-2">
-              <span className="text-[11px] text-emerald-800 font-semibold">
-                Your Profit: +{currency}{receiptSale.profit.toFixed(2)}
-              </span>
-            </div>
-
-            {/* FOOTER WITH REQUIRED STATEMENT (User Request 3) */}
+            {/* Receipt Footer */}
             <div className="text-center py-2 space-y-1">
               <p className="text-xs text-slate-600 font-medium">Maita basa • Siyabonga • Thank you!</p>
               <p className="text-[11px] italic text-slate-500">

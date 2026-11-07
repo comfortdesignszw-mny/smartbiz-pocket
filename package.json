@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "postinstall": "node -e \"import('fs').then(fs => { const p='node_modules/vite/dist/client/client.mjs'; if (fs.existsSync(p)) { let c = fs.readFileSync(p, 'utf8'); if (!c.includes('typeof ws.send')) { c = c.replace('ws.send(JSON.stringify(data));', 'if (ws && typeof ws.send === \\'function\\') { ws.send(JSON.stringify(data)); }'); fs.writeFileSync(p, c); } } });\""
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -20,7 +21,8 @@
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
-    "react-dom": "^19.0.1"
+    "react-dom": "^19.0.1",
+    "recharts": "^3.10.1"
   },
   "engines": {
     "node": ">=20.0.0"

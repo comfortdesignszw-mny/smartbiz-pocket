@@ -875,7 +875,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'reports' && (
+          {(activeTab === 'reports' || activeTab === 'performance') && (
             <ReportsModule state={state} onNavigate={setActiveTab} />
           )}
 

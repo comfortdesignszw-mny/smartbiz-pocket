@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   BarChart3,
   Calendar,
@@ -14,6 +14,16 @@ import {
   FileText,
   Sparkles,
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Cell,
+} from 'recharts';
 import { SmartBizState } from '../../types';
 import { StandardPdfReportModal } from './StandardPdfReportModal';
 import { printStandardReport } from '../../utils/pdfExport';
@@ -89,6 +99,46 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ state, onNavigate 
   // Asset values
   const totalStockRetailValue = products.reduce((sum, p) => sum + p.sellingPrice * p.quantity, 0);
   const totalDebtorValue = debtors.filter(d => d.balanceOwed > 0).reduce((sum, d) => sum + d.balanceOwed, 0);
+
+  // 7-Day Weekly Sales Trends (Comparing daily revenue totals over the last 7 days)
+  const weeklySalesTrends = useMemo(() => {
+    const data: { dayKey: string; label: string; dateLabel: string; revenue: number; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
+      const weekday = i === 0 ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' });
+      const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      // Match sales by date string
+      const daysSales = sales.filter(s => {
+        const sDate = new Date(s.date);
+        const sYear = sDate.getFullYear();
+        const sMonth = String(sDate.getMonth() + 1).padStart(2, '0');
+        const sDay = String(sDate.getDate()).padStart(2, '0');
+        return `${sYear}-${sMonth}-${sDay}` === dateStr;
+      });
+
+      const dayRevenue = daysSales.reduce((sum, s) => sum + s.totalSale, 0);
+
+      data.push({
+        dayKey: dateStr,
+        label: weekday,
+        dateLabel,
+        revenue: Math.round(dayRevenue * 100) / 100,
+        count: daysSales.length,
+      });
+    }
+    return data;
+  }, [sales]);
+
+  const total7DayRevenue = weeklySalesTrends.reduce((sum, d) => sum + d.revenue, 0);
+  const peakDay = weeklySalesTrends.reduce((max, d) => (d.revenue > max.revenue ? d : max), weeklySalesTrends[0]);
+  const avgDailyRevenue = total7DayRevenue / 7;
 
   // CSV Export
   const handleExportCSV = () => {
@@ -275,6 +325,104 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ state, onNavigate 
             </div>
             <p className="text-[10px] text-slate-500">{filteredExpenses.length} records</p>
           </div>
+        </div>
+      </div>
+
+      {/* Weekly Sales Trends (Last 7 Days) - Recharts Bar Chart */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <BarChart3 className="w-4 h-4 text-emerald-700" />
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800">
+                Weekly Sales Trends (Last 7 Days)
+              </h3>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Comparing daily revenue totals over the last 7 days
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-md border border-emerald-200">
+              7-Day Total: {currency}{total7DayRevenue.toFixed(2)}
+            </span>
+            <span className="text-[10px] bg-slate-100 text-slate-700 font-medium px-2 py-0.5 rounded-md">
+              Avg: {currency}{avgDailyRevenue.toFixed(2)}/day
+            </span>
+          </div>
+        </div>
+
+        {/* Recharts Bar Chart */}
+        <div className="h-56 w-full pt-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={weeklySalesTrends} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={{ stroke: '#e2e8f0' }}
+                tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10, fill: '#94a3b8' }}
+                tickFormatter={val => `${currency}${val}`}
+              />
+              <Tooltip
+                formatter={(val: any) => [`${currency}${Number(val).toFixed(2)}`, 'Daily Revenue']}
+                labelFormatter={(label, items) => {
+                  const item = items?.[0]?.payload;
+                  return item ? `${item.label} (${item.dateLabel})` : label;
+                }}
+                contentStyle={{
+                  backgroundColor: '#0f172a',
+                  borderColor: '#334155',
+                  borderRadius: '0.5rem',
+                  color: '#fff',
+                  fontSize: '11px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                }}
+                itemStyle={{ color: '#34d399', fontWeight: 700 }}
+              />
+              <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
+                {weeklySalesTrends.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={entry.revenue === peakDay.revenue && peakDay.revenue > 0 ? '#047857' : '#10b981'}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 7-Day Quick Breakdown Badges */}
+        <div className="grid grid-cols-7 gap-1 pt-1 border-t border-slate-100">
+          {weeklySalesTrends.map(day => (
+            <div
+              key={day.dayKey}
+              className={`text-center p-1.5 rounded-lg border transition-all ${
+                day.label === 'Today'
+                  ? 'bg-emerald-50 border-emerald-300'
+                  : 'bg-slate-50/70 border-slate-150'
+              }`}
+            >
+              <span className="text-[10px] font-bold text-slate-700 block truncate">
+                {day.label}
+              </span>
+              <span className="text-[9px] text-slate-400 block truncate">
+                {day.dateLabel}
+              </span>
+              <span
+                className={`text-[10px] font-black block mt-0.5 truncate ${
+                  day.revenue > 0 ? 'text-emerald-700' : 'text-slate-400'
+                }`}
+              >
+                {currency}{day.revenue.toFixed(0)}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 

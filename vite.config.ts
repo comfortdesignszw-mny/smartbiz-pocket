@@ -7,6 +7,18 @@ import {VitePWA} from 'vite-plugin-pwa';
 export default defineConfig(() => {
   return {
     plugins: [
+      {
+        name: 'patch-vite-client-ws',
+        enforce: 'pre',
+        transform(code, id) {
+          if (id.includes('client.mjs') || id.includes('@vite/client')) {
+            return code.replace(
+              'ws.send(JSON.stringify(data));',
+              'if (ws && typeof ws.send === "function") { ws.send(JSON.stringify(data)); }'
+            );
+          }
+        },
+      },
       react(),
       tailwindcss(),
       VitePWA({
@@ -79,6 +91,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
           importScripts: ['/sw-push.js'],
           navigateFallback: '/index.html',

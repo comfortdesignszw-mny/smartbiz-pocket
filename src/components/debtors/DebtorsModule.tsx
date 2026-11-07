@@ -589,8 +589,8 @@ export const DebtorsModule: React.FC<DebtorsModuleProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Payment Method
                 </label>
-                <div className="grid grid-cols-3 gap-1.5 text-xs">
-                  {['Cash USD', 'EcoCash', 'ZiG Cash'].map(pm => (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+                  {['Cash USD', 'EcoCash', 'ZiG Cash', 'ZAR (SA Rands)'].map(pm => (
                     <button
                       key={pm}
                       type="button"

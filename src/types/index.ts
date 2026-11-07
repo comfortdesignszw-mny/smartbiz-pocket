@@ -42,7 +42,7 @@ export interface InventoryMovement {
   date: string;
 }
 
-export type PaymentMethod = 'Cash USD' | 'EcoCash' | 'ZiG Cash' | 'Bank Card' | 'On Credit';
+export type PaymentMethod = 'Cash USD' | 'EcoCash' | 'ZiG Cash' | 'ZAR (SA Rands)' | 'Bank Card' | 'On Credit';
 
 export interface SaleItem {
   id: string;
